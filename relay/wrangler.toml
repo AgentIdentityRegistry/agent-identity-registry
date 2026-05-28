@@ -35,6 +35,19 @@ database_name = "air-relay"
 database_id   = "45226b47-a49a-475a-b84e-b207bd8a1a07"
 
 # KV for replay-nonce tracking (per-recipient seen-nonce set, TTL'd).
+# Also used by the relay's per-sender rate limiter (sliding-window
+# counter keyed by `rl:{sender_did}:{minute_bucket}`).
 [[kv_namespaces]]
 binding = "REPLAY_NONCE"
 id      = "a25e8f9119274c70a01c0cdedb1cb548"
+
+# Daily garbage collection. Drops messages per the retention policy
+# baked into 0001_relay_init.sql:
+#   * acked > 24h
+#   * fetched-but-unacked > 7d
+#   * never-fetched > 30d
+# Runs at 03:17 UTC daily (off-peak for both APAC and AMER colos,
+# minor jitter from a round-number minute to spread GC load across
+# operators if other relays adopt the same default).
+[triggers]
+crons = ["17 3 * * *"]
