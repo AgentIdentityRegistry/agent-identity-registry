@@ -56,6 +56,20 @@ export default {
       } else if (path.match(/^\/api\/v1\/agents\/AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/) && method === "DELETE") {
         const airId = path.split("/")[4];
         response = await adminAuth(request, env) || await deleteAgent(airId, env.DB);
+      } else if (path.match(/^\/api\/v1\/agents\/AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\/attestations$/) && method === "POST") {
+        const airId = path.split("/")[4];
+        response = await createAttestation(request, airId, env.DB);
+      } else if (path.match(/^\/api\/v1\/agents\/AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\/attestations$/) && method === "GET") {
+        const airId = path.split("/")[4];
+        response = await listAttestations(airId, env.DB);
+      } else if (path === "/api/v1/attestations/recent" && method === "GET") {
+        response = await recentAttestations(url, env.DB);
+      } else if (path.match(/^\/api\/v1\/agents\/AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\/attestations\/\d+$/) && method === "DELETE") {
+        const parts = path.split("/");
+        response = await revokeAttestation(request, parts[4], parts[6], env.DB);
+      } else if (path.match(/^\/api\/v1\/agents\/AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\/badge\.svg$/) && method === "GET") {
+        const airId = path.split("/")[4];
+        response = await getBadgeSvg(airId, env.DB);
       } else if (path === "/api/v1/agents/register" && method === "POST") {
         response = await registerAgent(request, env.DB);
       } else if (path === "/api/v1/agents/check-name" && method === "GET") {
@@ -489,6 +503,275 @@ function validatePublicKey(key) {
 }
 
 // ============================================================
+// ATTESTATION HELPERS (AIR Verified — Phase 4, migrations/0004)
+// ============================================================
+//
+// Six locks an attestation must pass to count toward Verified:
+//   Lock 1: Live did:wba resolution + Ed25519 signature check
+//   Lock 2: WHOIS root distinct from subject + from other attesters
+//   Lock 3: Attester tenure ≥30 days + attester own trust ≥50
+//   Lock 4: Weighted by attester_trust × tenure_multiplier
+//   Lock 5: Attester rate limit ≤10 issuances per 7-day rolling window
+//   Lock 6: Public, signed, audit trail
+//
+// Verified formula:
+//   For each non-revoked attestation, weight = attester_trust × tenure_mult
+//   verified = (sum(weight) >= 300) AND (count(distinct whois_root) >= 3)
+//
+// See [[air/strategic-borrowings-from-opena2a-2026-05-28]] for design rationale.
+
+// Decode a base64url string to raw Uint8Array bytes.
+function base64urlToBytes(s) {
+  let b64 = s.replace(/-/g, "+").replace(/_/g, "/");
+  while (b64.length % 4 !== 0) b64 += "=";
+  const binary = atob(b64);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+  return out;
+}
+
+// Inverse of base58Encode() defined earlier. Decodes base58btc → raw bytes.
+const BASE58_DECODE_LUT = (() => {
+  const m = new Int8Array(128).fill(-1);
+  for (let i = 0; i < BASE58_ALPHABET.length; i++) m[BASE58_ALPHABET.charCodeAt(i)] = i;
+  return m;
+})();
+function base58Decode(s) {
+  if (typeof s !== "string" || s.length === 0) return new Uint8Array(0);
+  // Count leading "1"s — these encode leading zero bytes.
+  let leadingOnes = 0;
+  while (leadingOnes < s.length && s[leadingOnes] === "1") leadingOnes++;
+  // base58 → base256 (little-endian during accumulation, reversed at end)
+  const bytes = [];
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c >= 128) throw new Error("invalid base58 character");
+    const value = BASE58_DECODE_LUT[c];
+    if (value === -1) throw new Error("invalid base58 character: " + s[i]);
+    let carry = value;
+    for (let j = 0; j < bytes.length; j++) {
+      carry += bytes[j] * 58;
+      bytes[j] = carry & 0xff;
+      carry >>= 8;
+    }
+    while (carry > 0) {
+      bytes.push(carry & 0xff);
+      carry >>= 8;
+    }
+  }
+  const out = new Uint8Array(leadingOnes + bytes.length);
+  for (let i = 0; i < bytes.length; i++) out[leadingOnes + i] = bytes[bytes.length - 1 - i];
+  return out;
+}
+
+// Canonical JSON per RFC 8785 (JCS). Matches the A2A draft-1 _jcs_exact()
+// pattern in the conformance harness — no float coercion, exact integers.
+// Used so Rust/Python/Go implementations can byte-match our signed payloads.
+function jcsCanonicalize(obj) {
+  if (obj === null) return "null";
+  if (typeof obj === "boolean") return obj ? "true" : "false";
+  if (typeof obj === "number") {
+    if (!Number.isFinite(obj)) throw new Error("non-finite number in JCS payload");
+    if (!Number.isInteger(obj) && Math.abs(obj) > Number.MAX_SAFE_INTEGER) {
+      throw new Error("large float canonicalization not implemented");
+    }
+    return JSON.stringify(obj);
+  }
+  if (typeof obj === "string") return JSON.stringify(obj);
+  if (Array.isArray(obj)) {
+    return "[" + obj.map(jcsCanonicalize).join(",") + "]";
+  }
+  if (typeof obj === "object") {
+    const keys = Object.keys(obj).sort();
+    return "{" + keys.map(k => JSON.stringify(k) + ":" + jcsCanonicalize(obj[k])).join(",") + "}";
+  }
+  throw new Error("unsupported JCS type: " + typeof obj);
+}
+
+// Verify an Ed25519 signature in multibase encoding.
+//   publicKeyBase64url — 43-44 char base64url (Ed25519 32-byte raw key)
+//   payloadBytes       — Uint8Array of the JCS-canonical bytes that were signed
+//   signatureMultibase — "z" + base58btc-encoded 64-byte signature
+// Returns true iff the signature is valid. All failure modes (bad encoding,
+// wrong length, Web Crypto error) return false — never throw.
+async function verifyEd25519Signature(publicKeyBase64url, payloadBytes, signatureMultibase) {
+  if (typeof signatureMultibase !== "string" || !signatureMultibase.startsWith("z")) return false;
+  let sigBytes;
+  try { sigBytes = base58Decode(signatureMultibase.slice(1)); } catch { return false; }
+  if (sigBytes.length !== 64) return false;
+
+  let keyBytes;
+  try { keyBytes = base64urlToBytes(publicKeyBase64url); } catch { return false; }
+  if (keyBytes.length !== 32) return false;
+
+  try {
+    const cryptoKey = await crypto.subtle.importKey(
+      "raw", keyBytes, { name: "Ed25519" }, false, ["verify"]
+    );
+    return await crypto.subtle.verify("Ed25519", cryptoKey, sigBytes, payloadBytes);
+  } catch {
+    return false;
+  }
+}
+
+// Multi-label TLDs we recognize for proper eTLD+1 (WHOIS root) extraction.
+// Hand-maintained subset covering ~95% of cases. A full Public Suffix List
+// would add ~50KB for marginal additional coverage; this gate is one of 6
+// locks so the residual 5% gap is acceptable.
+const MULTI_LABEL_TLDS = new Set([
+  "co.uk", "org.uk", "ac.uk", "gov.uk", "ltd.uk", "plc.uk", "me.uk", "net.uk",
+  "com.au", "net.au", "org.au", "edu.au", "gov.au", "asn.au", "id.au",
+  "co.nz", "net.nz", "org.nz", "ac.nz", "gen.nz", "geek.nz",
+  "co.jp", "ne.jp", "or.jp", "ad.jp", "ac.jp", "go.jp", "gr.jp",
+  "co.kr", "or.kr", "ne.kr", "re.kr", "go.kr", "ac.kr", "pe.kr",
+  "com.br", "net.br", "org.br", "gov.br", "edu.br",
+  "com.sg", "edu.sg", "gov.sg", "net.sg", "org.sg",
+  "co.in", "net.in", "org.in", "gov.in", "edu.in", "ac.in",
+  "co.za", "org.za", "gov.za", "net.za", "ac.za",
+  "com.mx", "org.mx", "gob.mx", "edu.mx",
+  "com.hk", "org.hk", "gov.hk", "edu.hk", "idv.hk", "net.hk",
+  "com.tw", "org.tw", "gov.tw", "edu.tw", "idv.tw", "net.tw",
+  "com.cn", "net.cn", "org.cn", "gov.cn", "edu.cn", "ac.cn",
+]);
+
+// Extract the WHOIS root (eTLD+1) from a did:wba creator DID.
+//   "did:wba:agent.foo.steinberger.io:agents:AIR-X" → "steinberger.io"
+//   "did:wba:agent.example.co.uk:agents:AIR-X"      → "example.co.uk"
+// Throws on non-did:wba or malformed input; callers must catch.
+function extractWhoisRoot(did) {
+  if (typeof did !== "string" || !did.startsWith("did:wba:")) {
+    throw new Error("not a did:wba DID");
+  }
+  const rest = did.slice("did:wba:".length);
+  const hostEnd = rest.indexOf(":");
+  const host = (hostEnd === -1 ? rest : rest.slice(0, hostEnd)).toLowerCase();
+  const cleanHost = host.split(":")[0]; // defensive port strip
+  const labels = cleanHost.split(".");
+  if (labels.length < 2) throw new Error("host has too few labels: " + cleanHost);
+
+  if (labels.length >= 3) {
+    const last2 = labels.slice(-2).join(".");
+    if (MULTI_LABEL_TLDS.has(last2)) {
+      return labels.slice(-3).join(".");
+    }
+  }
+  return labels.slice(-2).join(".");
+}
+
+// Tenure multiplier per the AIR Verified design (Lock 4):
+//   <30d    → 0   (not eligible — caller should reject before this is reached)
+//   30-90d  → 0.5
+//   90-365d → 1.0
+//   >365d   → 1.5
+function tenureMultiplier(ageDays) {
+  if (ageDays < 30) return 0;
+  if (ageDays < 90) return 0.5;
+  if (ageDays < 365) return 1.0;
+  return 1.5;
+}
+
+// Run all 6 eligibility locks for an attester. Returns either:
+//   { eligible: true, attester_trust, age_days, tenure_multiplier,
+//     public_key, creator_did, whois_root }
+//   { eligible: false, reason: string }
+//
+// Lock 1 here verifies attester's own did:wba resolves. Caller is responsible
+// for Lock 2 (WHOIS root vs subject + other attesters) since that needs the
+// subject context.
+async function getAttesterEligibility(attesterAirId, db) {
+  const attester = await db.prepare(`
+    SELECT air_id, creator_did, created_at, public_key, status
+    FROM agents WHERE air_id = ?
+  `).bind(attesterAirId).first();
+
+  if (!attester) return { eligible: false, reason: "attester not found" };
+  if (attester.status !== "active") return { eligible: false, reason: "attester is not active" };
+  if (!attester.public_key) {
+    return { eligible: false, reason: "attester has no public_key on file (Lock 1 prerequisite)" };
+  }
+
+  // Lock 1: must be did:wba so we can resolve it live.
+  // External (non-did:wba) attesters are a future feature.
+  if (!isDidWba(attester.creator_did)) {
+    return { eligible: false, reason: "attester creator_did is not did:wba (external attesters not yet supported)" };
+  }
+  const wba = await resolveDidWba(attester.creator_did);
+  if (!wba.resolved) {
+    return { eligible: false, reason: `Lock 1: did:wba live resolution failed (${wba.error})` };
+  }
+
+  // Lock 3a: tenure ≥30 days
+  const createdAt = new Date(attester.created_at);
+  const ageDays = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
+  if (ageDays < 30) {
+    return { eligible: false, reason: `Lock 3: attester tenure ${ageDays.toFixed(1)}d < required 30d` };
+  }
+
+  // Lock 3b: attester's own trust ≥50
+  const trustRow = await db.prepare(
+    "SELECT total_score FROM trust_scores WHERE air_id = ?"
+  ).bind(attesterAirId).first();
+  const attesterTrust = trustRow?.total_score ?? 0;
+  if (attesterTrust < 50) {
+    return { eligible: false, reason: `Lock 3: attester trust ${attesterTrust} < required 50` };
+  }
+
+  // Lock 5: rate limit ≤10 active issuances per rolling 7-day window
+  const recentCount = await db.prepare(`
+    SELECT COUNT(*) AS n FROM agent_attestations
+    WHERE attester_air_id = ?
+      AND datetime(signed_at) >= datetime('now', '-7 days')
+      AND revoked_at IS NULL
+  `).bind(attesterAirId).first();
+  const issuedRecently = recentCount?.n ?? 0;
+  if (issuedRecently >= 10) {
+    return { eligible: false, reason: `Lock 5: ${issuedRecently} active issuances in last 7d (max 10)` };
+  }
+
+  // Lock 2 prep: extract WHOIS root. Caller compares against subject + others.
+  let whoisRoot;
+  try {
+    whoisRoot = extractWhoisRoot(attester.creator_did);
+  } catch (e) {
+    return { eligible: false, reason: `Lock 2 prep: cannot extract WHOIS root (${e.message})` };
+  }
+
+  return {
+    eligible: true,
+    attester_trust: attesterTrust,
+    age_days: ageDays,
+    tenure_multiplier: tenureMultiplier(ageDays),
+    public_key: attester.public_key,
+    creator_did: attester.creator_did,
+    whois_root: whoisRoot,
+  };
+}
+
+// Compute Verified status for a subject from its active attestations.
+// Returns { verified, verification_score, distinct_whois_roots, attestation_count }.
+async function computeVerifiedStatus(subjectAirId, db) {
+  const result = await db.prepare(`
+    SELECT attester_whois_root, attester_trust_at_issue, tenure_multiplier_at_issue
+    FROM agent_attestations
+    WHERE subject_air_id = ? AND revoked_at IS NULL
+  `).bind(subjectAirId).all();
+
+  const list = result?.results ?? [];
+  let score = 0;
+  const roots = new Set();
+  for (const row of list) {
+    score += row.attester_trust_at_issue * row.tenure_multiplier_at_issue;
+    roots.add(row.attester_whois_root);
+  }
+  return {
+    verified: score >= 300 && roots.size >= 3,
+    verification_score: Math.round(score),
+    distinct_whois_roots: roots.size,
+    attestation_count: list.length,
+  };
+}
+
+// ============================================================
 // TRUST SCORE CALCULATION
 // ============================================================
 
@@ -553,6 +836,12 @@ async function getAgent(airId, db) {
     return json({ error: "Agent not found", air_id: airId }, 404);
   }
 
+  // Computed Verified status from active attestations (Phase 4 / migration 0004).
+  // The legacy `agent.verified` and `agent.verification_level` columns are kept
+  // for backward compat but the authoritative value comes from the attestation
+  // graph. See [[air/strategic-borrowings-from-opena2a-2026-05-28]].
+  const verifiedStatus = await computeVerifiedStatus(airId, db);
+
   return json({
     "@context": "https://agentidentityregistry.org/v1",
     type: "AgentIdentity",
@@ -574,8 +863,16 @@ async function getAgent(airId, db) {
       code_repository: agent.transparency_code_repo,
       documentation_url: agent.transparency_docs_url,
     },
-    verified: !!agent.verified,
-    verification_level: agent.verification_level,
+    verified: verifiedStatus.verified,
+    verification_level: agent.verification_level, // legacy, kept for compat
+    verification_status: {
+      verified: verifiedStatus.verified,
+      score: verifiedStatus.verification_score,
+      score_required: 300,
+      attestation_count: verifiedStatus.attestation_count,
+      distinct_whois_roots: verifiedStatus.distinct_whois_roots,
+      distinct_whois_roots_required: 3,
+    },
     // Persisted result of the most recent did:wba resolution check.
     // null = creator isn't a did:wba (the field is N/A). For did:wba creators,
     // true/false reflects whether the agent's did.json was fetchable at the
@@ -1099,6 +1396,422 @@ async function checkName(url, db) {
     exists: match.results.length > 0,
     count: match.results.length,
     existing_agents: match.results.map(function(r) { return { air_id: r.air_id, name: r.name }; }),
+  });
+}
+
+// ============================================================
+// ATTESTATION ENDPOINTS (AIR Verified — Phase 4, migrations/0004)
+// ============================================================
+//
+// POST /api/v1/agents/{air_id}/attestations
+// Body: { attester_air_id, attestation_type, statement?, signed_at, signature_multibase }
+// Header: X-Agent-Secret (the attester's secret — proves they own the attester record)
+//
+// The signed_payload that the attester signed is the JCS-canonical bytes of:
+//   { attester_air_id, attestation_type, signed_at, statement, subject_air_id }
+// (keys sorted alphabetically per JCS — see jcsCanonicalize)
+//
+// Returns 201 with the inserted attestation + the subject's updated verified status.
+// Returns 400 on invalid input / signature failure (Lock 1).
+// Returns 401 on missing/wrong attester secret.
+// Returns 403 if attester fails eligibility (Locks 1, 3, 5).
+// Returns 409 if Lock 2 (WHOIS-root distinctness) fails.
+
+const VALID_ATTESTATION_TYPES = new Set([
+  "identity_verification",  // I confirm this agent's claimed identity is real
+  "operator_confirmation",  // I confirm this agent is operated by its claimed creator
+  "dependency",             // I depend on this agent in production
+  "safety_review",          // I have reviewed and trust this agent's safety
+]);
+
+async function createAttestation(request, subjectAirId, db) {
+  // ---- 1. Parse + validate body shape -------------------------------------
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "invalid JSON body" }, 400);
+  }
+  const {
+    attester_air_id,
+    attestation_type,
+    signed_at,
+    signature_multibase,
+    statement = "",
+  } = body || {};
+  for (const [k, v] of [
+    ["attester_air_id", attester_air_id],
+    ["attestation_type", attestation_type],
+    ["signed_at", signed_at],
+    ["signature_multibase", signature_multibase],
+  ]) {
+    if (typeof v !== "string" || v.length === 0) {
+      return json({ error: `missing or invalid '${k}'` }, 400);
+    }
+  }
+  if (typeof statement !== "string") {
+    return json({ error: "'statement' must be a string if provided" }, 400);
+  }
+  if (!VALID_ATTESTATION_TYPES.has(attestation_type)) {
+    return json({
+      error: "invalid attestation_type",
+      message: `must be one of: ${[...VALID_ATTESTATION_TYPES].join(", ")}`,
+    }, 400);
+  }
+
+  // ---- 2. Self-attestation guard + subject existence ---------------------
+  if (subjectAirId === attester_air_id) {
+    return json({ error: "self-attestation is not allowed" }, 400);
+  }
+  const subject = await db.prepare(
+    "SELECT air_id, creator_did, status FROM agents WHERE air_id = ?"
+  ).bind(subjectAirId).first();
+  if (!subject) {
+    return json({ error: "subject agent not found", air_id: subjectAirId }, 404);
+  }
+  if (subject.status !== "active") {
+    return json({ error: "subject agent is not active" }, 409);
+  }
+
+  // ---- 3. Authenticate attester via X-Agent-Secret -----------------------
+  // Proves they control the AIR record they claim to be attesting from.
+  // Separate from Lock 1 (which checks they ALSO control the underlying did:wba).
+  const secret = request.headers.get("X-Agent-Secret");
+  if (!secret) {
+    return json({ error: "X-Agent-Secret header required for attestation" }, 401);
+  }
+  const attesterAuth = await db.prepare(
+    "SELECT agent_secret_hash FROM agents WHERE air_id = ?"
+  ).bind(attester_air_id).first();
+  if (!attesterAuth?.agent_secret_hash) {
+    return json({ error: "attester has no secret on file" }, 401);
+  }
+  const providedHash = await sha256Hex(secret);
+  if (!constantTimeEquals(providedHash, attesterAuth.agent_secret_hash)) {
+    return json({ error: "invalid attester secret" }, 401);
+  }
+
+  // ---- 4. Run eligibility locks (Locks 1 + 3 + 5 + Lock 2 prep) ---------
+  const elig = await getAttesterEligibility(attester_air_id, db);
+  if (!elig.eligible) {
+    return json({ error: "attester not eligible", reason: elig.reason }, 403);
+  }
+
+  // ---- 5. Lock 2: WHOIS-root distinctness --------------------------------
+  // 5a. Subject's WHOIS root (only checkable if subject is did:wba).
+  if (isDidWba(subject.creator_did)) {
+    try {
+      const subjectRoot = extractWhoisRoot(subject.creator_did);
+      if (subjectRoot === elig.whois_root) {
+        return json({
+          error: "Lock 2: attester and subject share the same WHOIS root",
+          whois_root: subjectRoot,
+        }, 409);
+      }
+    } catch {
+      return json({
+        error: "Lock 2: subject WHOIS root could not be extracted",
+      }, 500);
+    }
+  }
+  // 5b. Each existing active attester must be on a different WHOIS root.
+  const existingRoots = await db.prepare(`
+    SELECT DISTINCT attester_whois_root FROM agent_attestations
+    WHERE subject_air_id = ? AND revoked_at IS NULL
+  `).bind(subjectAirId).all();
+  for (const row of (existingRoots?.results ?? [])) {
+    if (row.attester_whois_root === elig.whois_root) {
+      return json({
+        error: "Lock 2: another active attestation on this subject already uses your WHOIS root",
+        whois_root: elig.whois_root,
+      }, 409);
+    }
+  }
+
+  // ---- 6. Verify Ed25519 signature over JCS-canonical payload ----------
+  const canonicalPayload = jcsCanonicalize({
+    attester_air_id,
+    attestation_type,
+    signed_at,
+    statement,
+    subject_air_id: subjectAirId,
+  });
+  const payloadBytes = new TextEncoder().encode(canonicalPayload);
+  const sigOk = await verifyEd25519Signature(
+    elig.public_key, payloadBytes, signature_multibase
+  );
+  if (!sigOk) {
+    return json({
+      error: "Lock 1: Ed25519 signature verification failed",
+      hint: "Sign the JCS-canonical bytes of {attester_air_id, attestation_type, signed_at, statement, subject_air_id} with your Ed25519 private key, then multibase-encode (z + base58btc).",
+    }, 400);
+  }
+
+  // ---- 7. Insert attestation ------------------------------------------
+  const nowIso = new Date().toISOString();
+  let insertResult;
+  try {
+    insertResult = await db.prepare(`
+      INSERT INTO agent_attestations
+        (subject_air_id, attester_air_id, attester_whois_root, attestation_type,
+         statement, signed_payload, signature_multibase, signed_at,
+         attester_trust_at_issue, tenure_multiplier_at_issue, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      subjectAirId,
+      attester_air_id,
+      elig.whois_root,
+      attestation_type,
+      statement,
+      canonicalPayload,
+      signature_multibase,
+      signed_at,
+      elig.attester_trust,
+      elig.tenure_multiplier,
+      nowIso,
+    ).run();
+  } catch (e) {
+    return json({
+      error: "database error",
+      message: String(e.message ?? e),
+    }, 500);
+  }
+
+  // ---- 8. Updated verified status (so caller knows the threshold delta) -
+  const verifiedStatus = await computeVerifiedStatus(subjectAirId, db);
+
+  return json({
+    attestation_id: insertResult.meta?.last_row_id,
+    subject_air_id: subjectAirId,
+    attester_air_id,
+    attestation_type,
+    statement,
+    signed_at,
+    attester_whois_root: elig.whois_root,
+    attester_trust_at_issue: elig.attester_trust,
+    tenure_multiplier_at_issue: elig.tenure_multiplier,
+    weight: elig.attester_trust * elig.tenure_multiplier,
+    verified_status: verifiedStatus,
+  }, 201);
+}
+
+// GET /api/v1/agents/{air_id}/attestations
+// PUBLIC — returns full attestation list (including revoked, marked as such)
+// so anyone can audit the trust graph. Audit IS part of Lock 6.
+async function listAttestations(subjectAirId, db) {
+  const subject = await db.prepare(
+    "SELECT air_id FROM agents WHERE air_id = ?"
+  ).bind(subjectAirId).first();
+  if (!subject) {
+    return json({ error: "agent not found", air_id: subjectAirId }, 404);
+  }
+
+  const result = await db.prepare(`
+    SELECT id, attester_air_id, attester_whois_root, attestation_type,
+           statement, signed_payload, signature_multibase, signed_at,
+           attester_trust_at_issue, tenure_multiplier_at_issue,
+           revoked_at, created_at
+    FROM agent_attestations
+    WHERE subject_air_id = ?
+    ORDER BY signed_at DESC
+  `).bind(subjectAirId).all();
+
+  const attestations = (result?.results ?? []).map(row => ({
+    id: row.id,
+    attester_air_id: row.attester_air_id,
+    attester_whois_root: row.attester_whois_root,
+    attestation_type: row.attestation_type,
+    statement: row.statement,
+    signed_payload: row.signed_payload,
+    signature_multibase: row.signature_multibase,
+    signed_at: row.signed_at,
+    attester_trust_at_issue: row.attester_trust_at_issue,
+    tenure_multiplier_at_issue: row.tenure_multiplier_at_issue,
+    weight: row.attester_trust_at_issue * row.tenure_multiplier_at_issue,
+    revoked_at: row.revoked_at,
+    is_active: row.revoked_at === null,
+    created_at: row.created_at,
+  }));
+
+  const verifiedStatus = await computeVerifiedStatus(subjectAirId, db);
+
+  return json({
+    subject_air_id: subjectAirId,
+    attestations,
+    total: attestations.length,
+    active: attestations.filter(a => a.is_active).length,
+    verified_status: verifiedStatus,
+  });
+}
+
+// GET /api/v1/attestations/recent?limit=N
+// PUBLIC firehose of recent active attestations. Used for:
+//   - Building a dashboard / "live activity" view
+//   - Spotting Sybil rings (3 fresh attesters all on the same fresh subject = smell)
+//   - Backfilling local mirrors of the trust graph
+// Default limit 50, max 200.
+async function recentAttestations(url, db) {
+  const limitRaw = parseInt(url.searchParams.get("limit") || "50", 10);
+  const limit = Math.max(1, Math.min(isNaN(limitRaw) ? 50 : limitRaw, 200));
+
+  const result = await db.prepare(`
+    SELECT id, subject_air_id, attester_air_id, attester_whois_root,
+           attestation_type, statement, signed_at,
+           attester_trust_at_issue, tenure_multiplier_at_issue, created_at
+    FROM agent_attestations
+    WHERE revoked_at IS NULL
+    ORDER BY signed_at DESC
+    LIMIT ?
+  `).bind(limit).all();
+
+  const items = (result?.results ?? []).map(row => ({
+    id: row.id,
+    subject_air_id: row.subject_air_id,
+    attester_air_id: row.attester_air_id,
+    attester_whois_root: row.attester_whois_root,
+    attestation_type: row.attestation_type,
+    statement: row.statement,
+    signed_at: row.signed_at,
+    weight: row.attester_trust_at_issue * row.tenure_multiplier_at_issue,
+    created_at: row.created_at,
+  }));
+
+  return json({
+    attestations: items,
+    total: items.length,
+    limit,
+  });
+}
+
+// DELETE /api/v1/agents/{subject_air_id}/attestations/{attestation_id}
+// Soft-deletes an attestation. Only the original attester can revoke.
+// Auth via X-Agent-Secret of the attester (not the subject).
+async function revokeAttestation(request, subjectAirId, attestationIdRaw, db) {
+  const attestationId = parseInt(attestationIdRaw, 10);
+  if (isNaN(attestationId) || attestationId < 1) {
+    return json({ error: "invalid attestation_id" }, 400);
+  }
+
+  const att = await db.prepare(`
+    SELECT id, subject_air_id, attester_air_id, revoked_at
+    FROM agent_attestations WHERE id = ?
+  `).bind(attestationId).first();
+  if (!att) {
+    return json({ error: "attestation not found", attestation_id: attestationId }, 404);
+  }
+  if (att.subject_air_id !== subjectAirId) {
+    return json({
+      error: "attestation does not belong to this subject",
+      attestation_id: attestationId,
+      claimed_subject: subjectAirId,
+      actual_subject: att.subject_air_id,
+    }, 400);
+  }
+  if (att.revoked_at) {
+    return json({ error: "attestation already revoked", revoked_at: att.revoked_at }, 409);
+  }
+
+  const secret = request.headers.get("X-Agent-Secret");
+  if (!secret) {
+    return json({ error: "X-Agent-Secret header required (must be original attester's secret)" }, 401);
+  }
+  const attesterAuth = await db.prepare(
+    "SELECT agent_secret_hash FROM agents WHERE air_id = ?"
+  ).bind(att.attester_air_id).first();
+  if (!attesterAuth?.agent_secret_hash) {
+    return json({ error: "attester has no secret on file" }, 401);
+  }
+  const providedHash = await sha256Hex(secret);
+  if (!constantTimeEquals(providedHash, attesterAuth.agent_secret_hash)) {
+    return json({ error: "invalid attester secret (only the original attester can revoke)" }, 401);
+  }
+
+  const nowIso = new Date().toISOString();
+  await db.prepare(`UPDATE agent_attestations SET revoked_at = ? WHERE id = ?`)
+    .bind(nowIso, attestationId).run();
+
+  const verifiedStatus = await computeVerifiedStatus(subjectAirId, db);
+  return json({
+    revoked: true,
+    attestation_id: attestationId,
+    subject_air_id: subjectAirId,
+    revoked_at: nowIso,
+    verified_status: verifiedStatus,
+  });
+}
+
+// GET /api/v1/agents/{air_id}/badge.svg
+// Codecov-style SVG badge. Three tiers:
+//   - Verified (computeVerifiedStatus.verified): green
+//   - Has trust score: blue with score
+//   - Not found / no score: gray "unknown"
+// 60s cache (we want badges to reflect Verified-status changes quickly).
+async function getBadgeSvg(airId, db) {
+  const agent = await db.prepare(`
+    SELECT a.air_id, a.status, t.total_score
+    FROM agents a LEFT JOIN trust_scores t ON a.air_id = t.air_id
+    WHERE a.air_id = ?
+  `).bind(airId).first();
+
+  let leftLabel, rightLabel, rightColor;
+  if (!agent) {
+    leftLabel = "AIR";
+    rightLabel = "not found";
+    rightColor = "#9f9f9f";
+  } else {
+    const status = await computeVerifiedStatus(airId, db);
+    if (status.verified) {
+      leftLabel = "AIR";
+      rightLabel = "Verified ✓";
+      rightColor = "#4c1";
+    } else if (agent.total_score != null) {
+      leftLabel = "AIR Trust";
+      rightLabel = String(agent.total_score);
+      rightColor = "#007ec6";
+    } else {
+      leftLabel = "AIR";
+      rightLabel = "no score";
+      rightColor = "#9f9f9f";
+    }
+  }
+
+  // Width budget — ~7px per character at 11px font in Verdana.
+  const leftWidth = Math.max(45, leftLabel.length * 8 + 10);
+  const rightWidth = Math.max(50, rightLabel.length * 7 + 12);
+  const totalWidth = leftWidth + rightWidth;
+  const leftMid = leftWidth / 2;
+  const rightMid = leftWidth + rightWidth / 2;
+
+  const escape = (s) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="20" role="img" aria-label="${escape(leftLabel)}: ${escape(rightLabel)}">
+  <title>${escape(leftLabel)}: ${escape(rightLabel)}</title>
+  <linearGradient id="s" x2="0" y2="100%">
+    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
+    <stop offset="1" stop-opacity=".1"/>
+  </linearGradient>
+  <clipPath id="r"><rect width="${totalWidth}" height="20" rx="3" fill="#fff"/></clipPath>
+  <g clip-path="url(#r)">
+    <rect width="${leftWidth}" height="20" fill="#555"/>
+    <rect x="${leftWidth}" width="${rightWidth}" height="20" fill="${rightColor}"/>
+    <rect width="${totalWidth}" height="20" fill="url(#s)"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110">
+    <text aria-hidden="true" x="${leftMid * 10}" y="150" transform="scale(.1)" fill="#000" fill-opacity=".3">${escape(leftLabel)}</text>
+    <text x="${leftMid * 10}" y="140" transform="scale(.1)" fill="#fff">${escape(leftLabel)}</text>
+    <text aria-hidden="true" x="${rightMid * 10}" y="150" transform="scale(.1)" fill="#000" fill-opacity=".3">${escape(rightLabel)}</text>
+    <text x="${rightMid * 10}" y="140" transform="scale(.1)" fill="#fff">${escape(rightLabel)}</text>
+  </g>
+</svg>`;
+
+  return new Response(svg, {
+    status: 200,
+    headers: {
+      "Content-Type": "image/svg+xml; charset=utf-8",
+      "Cache-Control": "public, max-age=60",
+      "Access-Control-Allow-Origin": "*",
+    },
   });
 }
 
