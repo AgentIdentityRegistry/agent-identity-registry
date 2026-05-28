@@ -1,0 +1,18 @@
+{
+  "id": "018fde04-0000-4000-8000-000000000000",
+  "from": "did:wba:agentidentityregistry.org:agents:AIR-DAV3-D004-0004",
+  "to": "did:wba:agentidentityregistry.org:agents:AIR-ALIC-E001-0001",
+  "timestamp": "2026-05-28T09:04:00.000Z",
+  "thread_id": "018fde04-1111-4000-8000-111111111111",
+  "nonce": "nonce-draft1-example-04",
+  "body": {
+    "type": "Offer",
+    "description": "日本語翻訳サービス：英語から日本語へ500語。",
+    "price": {
+      "amount_cents": 50000,
+      "currency": "JPY"
+    },
+    "expires_at": "2026-05-28T11:04:00.000Z"
+  },
+  "signature": "z222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+}

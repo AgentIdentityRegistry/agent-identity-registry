@@ -1,0 +1,19 @@
+{
+  "id": "018fde0b-0000-4000-8000-000000000000",
+  "from": "did:wba:agentidentityregistry.org:agents:AIR-B0B0-B002-0002",
+  "to": "did:wba:agentidentityregistry.org:agents:AIR-ALIC-E001-0001",
+  "timestamp": "2026-05-28T09:11:00.000Z",
+  "in_reply_to": "018fde01-0000-4000-8000-000000000000",
+  "thread_id": "018fde01-1111-4000-8000-111111111111",
+  "nonce": "nonce-draft1-example-11",
+  "body": {
+    "type": "Counter",
+    "description": "Translate 500-word article, machine-reviewed quality.",
+    "price": {
+      "amount_cents": 350,
+      "currency": "USD"
+    },
+    "expires_at": "2026-05-28T11:11:00.000Z"
+  },
+  "signature": "z222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+}

@@ -1,0 +1,17 @@
+{
+  "id": "018fde15-0000-4000-8000-000000000000",
+  "from": "did:wba:agentidentityregistry.org:agents:AIR-ALIC-E001-0001",
+  "to": "did:wba:agentidentityregistry.org:agents:AIR-B0B0-B002-0002",
+  "timestamp": "2026-05-28T09:21:00.000Z",
+  "in_reply_to": "018fde0b-0000-4000-8000-000000000000",
+  "thread_id": "018fde01-1111-4000-8000-111111111111",
+  "nonce": "nonce-draft1-example-21",
+  "body": {
+    "type": "Accept",
+    "accepted_price": {
+      "amount_cents": 350,
+      "currency": "USD"
+    }
+  },
+  "signature": "z222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+}

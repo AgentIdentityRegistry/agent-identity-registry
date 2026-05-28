@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Page not found — Agent Identity Registry. The URL you followed doesn't exist on this site.">
+    <meta name="robots" content="noindex">
+
+    <!-- Open Graph + Twitter Card (no canonical/og:url — 404s aren't canonical) -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Agent Identity Registry">
+    <meta property="og:title" content="Page Not Found — AIR">
+    <meta property="og:description" content="The URL you followed doesn't exist on agentidentityregistry.org. Head back to the homepage to browse the Agent Identity Registry.">
+    <meta property="og:image" content="https://agentidentityregistry.org/assets/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="AIR — The global identity standard for AI agents">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Page Not Found — AIR">
+    <meta name="twitter:description" content="The URL you followed doesn't exist on agentidentityregistry.org. Head back to the homepage to browse the Agent Identity Registry.">
+    <meta name="twitter:image" content="https://agentidentityregistry.org/assets/og-image.png">
+
+    <title>404 — Page Not Found · Agent Identity Registry</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Work+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary:#1E3A8A;--primary-dark:#172554;--primary-light:#2563EB;
+            --accent-gold:#F59E0B;--text:#0F172A;--text-secondary:#475569;--text-muted:#64748B;
+            --bg:#FFFFFF;--bg-warm:#F8FAFC;--bg-tint:#F0F4FF;--border:#CBD5E1;--border-light:#E2E8F0;
+            --card:#FFFFFF;--radius:0.5rem;
+        }
+        *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+        html{scroll-behavior:smooth;font-size:16px;}
+        body{font-family:'Work Sans',system-ui,sans-serif;line-height:1.6;color:var(--text);background:var(--bg-warm);-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column;}
+        h1,h2,h3{font-family:'Outfit',sans-serif;font-weight:700;line-height:1.15;}
+
+        .nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border-light);}
+        .nav-inner{max-width:1200px;margin:0 auto;padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;}
+        .nav-brand{display:flex;align-items:center;gap:0.75rem;text-decoration:none;color:var(--primary);}
+        .nav-brand-mark{font-family:'Outfit';font-weight:800;font-size:1.6rem;letter-spacing:-1px;}
+        .nav-brand-label{font-size:0.65rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);}
+        .nav-links{display:flex;gap:2rem;align-items:center;}
+        .nav-links a{text-decoration:none;color:var(--text-secondary);font-size:0.9rem;font-weight:500;transition:color 0.2s;}
+        .nav-links a:hover{color:var(--primary);}
+        .nav-cta{background:var(--primary);color:#fff!important;padding:0.55rem 1.25rem;border-radius:var(--radius);font-weight:600;font-size:0.85rem;text-decoration:none;transition:background 0.2s;}
+        .nav-cta:hover{background:var(--primary-light);}
+        @media(max-width:768px){.nav-links{display:none;}}
+
+        main{flex:1;display:flex;align-items:center;justify-content:center;padding:4rem 2rem;}
+        .panel{max-width:680px;text-align:center;}
+        .code{font-family:'Outfit',sans-serif;font-weight:800;font-size:clamp(5rem,14vw,9rem);line-height:1;color:var(--primary);letter-spacing:-4px;margin-bottom:0.5rem;background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary-light) 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+        .eyebrow{font-size:0.75rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--accent-gold);margin-bottom:1rem;}
+        h1{font-size:clamp(1.6rem,3.5vw,2.2rem);color:var(--primary-dark);margin-bottom:1rem;}
+        .panel p{color:var(--text-secondary);font-size:1.02rem;margin-bottom:1.25rem;}
+        .actions{display:flex;gap:0.75rem;flex-wrap:wrap;justify-content:center;margin-top:1.75rem;}
+        .btn{display:inline-flex;align-items:center;gap:0.4rem;padding:0.7rem 1.4rem;border-radius:var(--radius);font-family:'Outfit',sans-serif;font-weight:600;font-size:0.92rem;text-decoration:none;transition:all 0.2s;border:none;cursor:pointer;}
+        .btn-primary{background:var(--primary);color:#fff;}
+        .btn-primary:hover{background:var(--primary-light);transform:translateY(-1px);box-shadow:0 6px 18px rgba(30,58,138,0.22);}
+        .btn-outline{background:transparent;color:var(--primary);border:2px solid var(--border);}
+        .btn-outline:hover{border-color:var(--primary);background:var(--bg-tint);}
+
+        .hints{margin-top:3rem;padding-top:2rem;border-top:1px solid var(--border-light);text-align:left;}
+        .hints h2{font-size:0.78rem;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:1rem;text-align:center;}
+        .hints-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.65rem;}
+        @media(max-width:540px){.hints-grid{grid-template-columns:1fr;}}
+        .hint{background:var(--card);border:1px solid var(--border-light);border-radius:var(--radius);padding:0.85rem 1rem;font-size:0.88rem;color:var(--text-secondary);text-decoration:none;display:flex;justify-content:space-between;align-items:center;gap:0.5rem;transition:all 0.15s;}
+        .hint:hover{border-color:var(--primary);background:var(--bg-tint);color:var(--primary-dark);transform:translateY(-1px);}
+        .hint-label{font-weight:600;color:var(--primary-dark);}
+        .hint-arrow{color:var(--text-muted);font-weight:600;}
+
+        footer{background:var(--primary-dark);color:rgba(255,255,255,0.6);padding:2rem 0;text-align:center;font-size:0.8rem;}
+        footer a{color:rgba(255,255,255,0.8);text-decoration:none;}
+        footer a:hover{color:#fff;}
+        .footer-brand{font-family:'Outfit';font-weight:800;font-size:1.2rem;color:#fff;margin-bottom:0.25rem;}
+        .footer-inner{max-width:1200px;margin:0 auto;padding:0 2rem;}
+    </style>
+</head>
+<body>
+
+<header class="nav">
+    <div class="nav-inner">
+        <a href="/" class="nav-brand"><div><div class="nav-brand-mark">AIR</div><div class="nav-brand-label">Agent Identity Registry</div></div></a>
+        <nav class="nav-links">
+            <a href="/">Home</a>
+            <a href="/lookup">ID Lookup</a>
+            <a href="/about">About</a>
+            <a href="/developers">Developers</a>
+            <a href="/register" class="nav-cta">Register an Agent</a>
+        </nav>
+    </div>
+</header>
+
+<main>
+    <div class="panel">
+        <div class="code">404</div>
+        <div class="eyebrow">Page Not Found</div>
+        <h1>This page isn't in the registry.</h1>
+        <p>The URL you followed doesn't exist on agentidentityregistry.org. It might be mistyped, an old link, or content we haven't published yet.</p>
+        <p>If you got here from a link on our own site, please <a href="/contact" style="color:var(--primary);font-weight:600;">let us know</a> so we can fix it.</p>
+
+        <div class="actions">
+            <a href="/" class="btn btn-primary">Back to Home →</a>
+            <a href="/developers" class="btn btn-outline">Developer Guide</a>
+        </div>
+
+        <div class="hints">
+            <h2>Or jump straight to</h2>
+            <div class="hints-grid">
+                <a href="/lookup" class="hint"><span class="hint-label">Look up an Agent ID</span><span class="hint-arrow">→</span></a>
+                <a href="/register" class="hint"><span class="hint-label">Register an Agent</span><span class="hint-arrow">→</span></a>
+                <a href="/developers" class="hint"><span class="hint-label">SDK + CLI + MCP</span><span class="hint-arrow">→</span></a>
+                <a href="/api/v1/openapi.yaml" class="hint"><span class="hint-label">OpenAPI Spec</span><span class="hint-arrow">→</span></a>
+                <a href="/about" class="hint"><span class="hint-label">About the Project</span><span class="hint-arrow">→</span></a>
+                <a href="/contact" class="hint"><span class="hint-label">Contact Us</span><span class="hint-arrow">→</span></a>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer>
+    <div class="footer-inner">
+        <div class="footer-brand">AIR</div>
+        <p>&copy; 2026 Agent Identity Registry Foundation. Specifications + code released under Apache 2.0.</p>
+        <p style="margin-top:0.5rem;"><a href="/">Home</a> &middot; <a href="/lookup">Lookup</a> &middot; <a href="/about">About</a> &middot; <a href="/developers">Developers</a> &middot; <a href="/governance">Governance</a> &middot; <a href="https://github.com/AgentIdentityRegistry" target="_blank" rel="noopener">GitHub Org</a> &middot; <a href="/contact">Contact</a></p>
+    </div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentidentityregistry.org/specs/a2a/draft-1/envelope.schema.json",
+  "title": "A2AEnvelope",
+  "description": "JSON Schema (2020-12) for A2A Messaging Protocol draft-1 envelopes. Source of truth: v1.md §4.",
+  "type": "object",
+  "required": ["id", "from", "to", "timestamp", "thread_id", "nonce", "body", "signature"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "description": "Globally unique UUIDv4 identifier for this envelope.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "from": {
+      "description": "Sender DID (did:wba: prefix).",
+      "type": "string",
+      "pattern": "^did:wba:"
+    },
+    "to": {
+      "description": "Recipient DID (did:wba: prefix).",
+      "type": "string",
+      "pattern": "^did:wba:"
+    },
+    "timestamp": {
+      "description": "Sender-side generation time, ISO 8601 UTC.",
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+    },
+    "in_reply_to": {
+      "description": "UUIDv4 of the envelope this message responds to. MUST be absent on the first message in a thread.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "thread_id": {
+      "description": "UUIDv4 grouping all envelopes in one negotiation thread.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "nonce": {
+      "description": "Sender-generated random string unique within (from, thread_id). Minimum 22 characters recommended.",
+      "type": "string",
+      "minLength": 1
+    },
+    "body": {
+      "description": "Application-layer payload; discriminated union on 'type'.",
+      "$ref": "#/$defs/Body"
+    },
+    "signature": {
+      "description": "EdDSA signature over the envelope, multibase-encoded (z-prefix base58btc).",
+      "type": "string",
+      "pattern": "^z[1-9A-HJ-NP-Za-km-z]+$"
+    }
+  },
+  "$defs": {
+    "Body": {
+      "description": "Discriminated union of the five A2A body types.",
+      "oneOf": [
+        { "$ref": "#/$defs/OfferBody" },
+        { "$ref": "#/$defs/CounterBody" },
+        { "$ref": "#/$defs/AcceptBody" },
+        { "$ref": "#/$defs/DeclineBody" },
+        { "$ref": "#/$defs/WithdrawBody" }
+      ]
+    },
+    "MonetaryValue": {
+      "description": "Monetary amount in integer minor units (cents, pence, etc.) plus ISO 4217 currency code. Floats are forbidden.",
+      "type": "object",
+      "required": ["amount_cents", "currency"],
+      "additionalProperties": false,
+      "properties": {
+        "amount_cents": {
+          "description": "Amount in integer minor units. MUST be a non-negative integer. Floats are forbidden.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "currency": {
+          "description": "ISO 4217 three-letter currency code.",
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        }
+      }
+    },
+    "OfferBody": {
+      "description": "Offer body — initiates a negotiation.",
+      "type": "object",
+      "required": ["type", "description", "price", "expires_at"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "Offer"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "price": {
+          "$ref": "#/$defs/MonetaryValue"
+        },
+        "expires_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+        }
+      }
+    },
+    "CounterBody": {
+      "description": "Counter body — proposes modified terms.",
+      "type": "object",
+      "required": ["type", "description", "price", "expires_at"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "Counter"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "price": {
+          "$ref": "#/$defs/MonetaryValue"
+        },
+        "expires_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+        }
+      }
+    },
+    "AcceptBody": {
+      "description": "Accept body — finalizes agreement.",
+      "type": "object",
+      "required": ["type", "accepted_price"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "Accept"
+        },
+        "accepted_price": {
+          "$ref": "#/$defs/MonetaryValue"
+        }
+      }
+    },
+    "DeclineBody": {
+      "description": "Decline body — terminates negotiation without agreement.",
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "Decline"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
+    },
+    "WithdrawBody": {
+      "description": "Withdraw body — cancels an outstanding Offer or Counter sent by the same agent.",
+      "type": "object",
+      "required": ["type", "withdrawn_id"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "Withdraw"
+        },
+        "withdrawn_id": {
+          "description": "UUIDv4 of the envelope being withdrawn.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
+    }
+  }
+}

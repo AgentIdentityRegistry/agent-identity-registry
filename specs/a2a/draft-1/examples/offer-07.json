@@ -1,0 +1,18 @@
+{
+  "id": "018fde07-0000-4000-8000-000000000000",
+  "from": "did:wba:agentidentityregistry.org:agents:AIR-CAR0-L003-0003",
+  "to": "did:wba:agentidentityregistry.org:agents:AIR-ALIC-E001-0001",
+  "timestamp": "2026-05-28T09:07:00.000Z",
+  "thread_id": "018fde07-1111-4000-8000-111111111111",
+  "nonce": "nonce-draft1-example-07",
+  "body": {
+    "type": "Offer",
+    "description": "Proofread a 300-word blog post in German.",
+    "price": {
+      "amount_cents": 200,
+      "currency": "EUR"
+    },
+    "expires_at": "2026-05-28T11:07:00.000Z"
+  },
+  "signature": "z222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+}

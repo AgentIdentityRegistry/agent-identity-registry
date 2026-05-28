@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AIR Governance — How the Agent Identity Registry is governed, our decision-making process, and principles of neutrality.">
+
+    <!-- Open Graph + Twitter Card -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Agent Identity Registry">
+    <meta property="og:title" content="AIR Governance">
+    <meta property="og:description" content="How the Agent Identity Registry is governed — decision-making, neutrality commitments, and the principles that keep the infrastructure independent.">
+    <meta property="og:url" content="https://agentidentityregistry.org/governance/">
+    <meta property="og:image" content="https://agentidentityregistry.org/assets/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="AIR — The global identity standard for AI agents">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="AIR Governance">
+    <meta name="twitter:description" content="How the Agent Identity Registry is governed — decision-making, neutrality commitments, and the principles that keep the infrastructure independent.">
+    <meta name="twitter:image" content="https://agentidentityregistry.org/assets/og-image.png">
+    <link rel="canonical" href="https://agentidentityregistry.org/governance/">
+
+    <title>Governance — Agent Identity Registry</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Work+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary:#1E3A8A;--primary-dark:#172554;--primary-light:#2563EB;
+            --accent-gold:#F59E0B;--text:#0F172A;--text-secondary:#475569;--text-muted:#64748B;
+            --bg:#FFFFFF;--bg-warm:#F8FAFC;--bg-tint:#F0F4FF;--border:#CBD5E1;--border-light:#E2E8F0;
+            --success:#059669;--success-bg:#DCFCE7;--card:#FFFFFF;--radius:0.5rem;
+            --warning-bg:#FEF3C7;--warning-text:#92400E;
+        }
+        *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+        html{scroll-behavior:smooth;font-size:16px;}
+        body{font-family:'Work Sans',system-ui,sans-serif;line-height:1.6;color:var(--text);background:var(--bg-warm);-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column;}
+        h1,h2,h3,h4{font-family:'Outfit',sans-serif;font-weight:700;line-height:1.15;}
+        .nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border-light);}
+        .nav-inner{max-width:1200px;margin:0 auto;padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;}
+        .nav-brand{display:flex;align-items:center;gap:0.75rem;text-decoration:none;color:var(--primary);}
+        .nav-brand-mark{font-family:'Outfit';font-weight:800;font-size:1.6rem;letter-spacing:-1px;}
+        .nav-brand-label{font-size:0.65rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);}
+        .nav-links{display:flex;gap:2rem;align-items:center;}
+        .nav-links a{text-decoration:none;color:var(--text-secondary);font-size:0.9rem;font-weight:500;transition:color 0.2s;}
+        .nav-links a:hover{color:var(--primary);}
+        .nav-cta{background:var(--primary);color:#fff!important;padding:0.55rem 1.25rem;border-radius:var(--radius);font-weight:600;font-size:0.85rem;text-decoration:none;transition:background 0.2s;}
+        .nav-cta:hover{background:var(--primary-light);}
+        @media(max-width:768px){.nav-links{display:none;}}
+
+        .hero{background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 50%,var(--primary-light) 100%);color:#fff;padding:3.5rem 0 4rem;text-align:center;}
+        .hero h1{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:800;letter-spacing:-1px;margin-bottom:0.5rem;}
+        .hero p{font-size:1.05rem;color:rgba(255,255,255,0.8);max-width:560px;margin:0 auto;}
+        .hero-tag{font-size:0.75rem;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--accent-gold);margin-bottom:0.75rem;}
+
+        .container{max-width:900px;margin:0 auto;padding:0 2rem;width:100%;}
+        main{flex:1;padding:3rem 0 4rem;}
+
+        .notice{background:var(--warning-bg);border:1px solid #FCD34D;border-radius:var(--radius);padding:1rem 1.25rem;font-size:0.85rem;color:var(--warning-text);margin-bottom:2.5rem;}
+
+        .content-section{margin-bottom:3rem;}
+        .content-section h2{font-size:1.5rem;color:var(--primary-dark);margin-bottom:1rem;padding-bottom:0.5rem;border-bottom:2px solid var(--border-light);}
+        .content-section h3{font-size:1.1rem;color:var(--primary);margin:1.5rem 0 0.5rem;}
+        .content-section p{color:var(--text-secondary);margin-bottom:1rem;font-size:0.95rem;}
+        .content-section ul{color:var(--text-secondary);margin:0 0 1rem 1.5rem;font-size:0.95rem;}
+        .content-section li{margin-bottom:0.5rem;}
+
+        .principles-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.25rem;margin-top:1.25rem;}
+        @media(max-width:700px){.principles-grid{grid-template-columns:1fr;}}
+        .principle-card{background:var(--card);border:1px solid var(--border-light);border-radius:0.75rem;padding:1.5rem;text-align:center;}
+        .principle-icon{font-size:2rem;margin-bottom:0.5rem;}
+        .principle-card h4{font-size:0.9rem;color:var(--primary-dark);margin-bottom:0.35rem;}
+        .principle-card p{font-size:0.82rem;color:var(--text-muted);margin:0;}
+
+        .tier-table{width:100%;border-collapse:collapse;margin-top:1rem;}
+        .tier-table th{text-align:left;padding:0.75rem 1rem;font-size:0.7rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);border-bottom:2px solid var(--border);background:var(--bg-warm);}
+        .tier-table td{padding:0.75rem 1rem;font-size:0.85rem;border-bottom:1px solid var(--border-light);color:var(--text-secondary);}
+        .tier-table tr:last-child td{border-bottom:none;}
+        .tier-label{font-family:'Outfit';font-weight:700;color:var(--primary-dark);}
+
+        footer{background:var(--primary-dark);color:rgba(255,255,255,0.6);padding:2rem 0;text-align:center;font-size:0.8rem;}
+        footer a{color:rgba(255,255,255,0.8);text-decoration:none;}
+        footer a:hover{color:#fff;}
+        .footer-brand{font-family:'Outfit';font-weight:800;font-size:1.2rem;color:#fff;margin-bottom:0.25rem;}
+    </style>
+</head>
+<body>
+
+<header class="nav">
+    <div class="nav-inner">
+        <a href="/" class="nav-brand"><div><div class="nav-brand-mark">AIR</div><div class="nav-brand-label">Agent Identity Registry</div></div></a>
+        <nav class="nav-links">
+            <a href="/">Home</a>
+            <a href="/lookup">ID Lookup</a>
+            <a href="/governance" style="color:var(--primary);">Governance</a>
+            <a href="/developers">Developers</a>
+            <a href="/register" class="nav-cta">Register an Agent</a>
+        </nav>
+    </div>
+</header>
+
+<section class="hero">
+    <div class="container">
+        <div class="hero-tag">Independent by Design</div>
+        <h1>Governance</h1>
+        <p>How AIR is governed, how decisions are made, and the principles that ensure neutrality.</p>
+    </div>
+</section>
+
+<main>
+    <div class="container">
+        <div class="notice">AIR is in early development. The governance structures described here represent our design goals and commitments. Some elements (such as the elected Technical Steering Committee) are planned but not yet established. We are transparent about what exists today versus what we are building toward.</div>
+
+        <div class="content-section">
+            <h2>Governance Principles</h2>
+            <div class="principles-grid">
+                <div class="principle-card">
+                    <div class="principle-icon">&#9878;</div>
+                    <h4>Neutrality</h4>
+                    <p>No single company, platform, or government controls AIR. The standard belongs to everyone.</p>
+                </div>
+                <div class="principle-card">
+                    <div class="principle-icon">&#9737;</div>
+                    <h4>Transparency</h4>
+                    <p>All decisions, algorithms, and processes are documented publicly. Nothing happens behind closed doors.</p>
+                </div>
+                <div class="principle-card">
+                    <div class="principle-icon">&#9881;</div>
+                    <h4>Accountability</h4>
+                    <p>Published roadmap with honest status updates. We say what we've done, not what we hope to do.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-section">
+            <h2>Decision-Making</h2>
+            <h3>Specification Changes</h3>
+            <p>Changes to the AIR specification follow a public process:</p>
+            <ul>
+                <li>Proposals are submitted as GitHub Issues or Discussions</li>
+                <li>Community review period (minimum 30 days for significant changes)</li>
+                <li>Technical merit and alignment with AIR's mission are the deciding factors</li>
+                <li>All accepted changes are documented with rationale</li>
+            </ul>
+
+            <h3>Trust Score Methodology</h3>
+            <p>The trust scoring algorithm is fully published. Any changes to scoring weights, components, or grade boundaries go through the same public review process as specification changes. No score adjustments happen without community visibility.</p>
+
+            <h3>Operational Decisions</h3>
+            <p>Day-to-day registry operations (infrastructure, security, uptime) are managed by the foundation team. Significant operational changes (new verification tiers, API breaking changes, data policies) follow the public review process.</p>
+        </div>
+
+        <div class="content-section">
+            <h2>Anti-Capture Provisions</h2>
+            <p>AIR is designed to resist capture by any single interest:</p>
+            <ul>
+                <li><strong>No corporate board seats</strong> — Board members serve as individuals, not as representatives of their employers</li>
+                <li><strong>Open source everything</strong> — Specification, scoring methodology, and registry code are all published under Apache 2.0</li>
+                <li><strong>No vendor lock-in</strong> — Built on W3C open standards (DIDs, VCs). Agent identities are portable by design</li>
+                <li><strong>Diversified funding</strong> — No single funder may contribute more than 25% of annual revenue (goal)</li>
+                <li><strong>Fork rights</strong> — If AIR ever fails its mission, the community can fork the specification and data</li>
+            </ul>
+        </div>
+
+        <div class="content-section">
+            <h2>Verification Tiers</h2>
+            <p>AIR uses a tiered verification system. Higher tiers require more evidence and produce higher trust scores:</p>
+            <table class="tier-table">
+                <thead>
+                    <tr><th>Tier</th><th>Requirements</th><th>Trust Impact</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="tier-label">Self-Verified</td>
+                        <td>Agent registered with a creator DID. No external verification.</td>
+                        <td>Base score only. Limited trust ceiling.</td>
+                    </tr>
+                    <tr>
+                        <td class="tier-label">Basic</td>
+                        <td>Creator identity confirmed via domain verification (did:web) or email.</td>
+                        <td>Score boost for provenance component.</td>
+                    </tr>
+                    <tr>
+                        <td class="tier-label">Standard</td>
+                        <td>Independent verifier attests to agent capabilities and behavior. Code repository reviewed.</td>
+                        <td>Significant score improvement across multiple components.</td>
+                    </tr>
+                    <tr>
+                        <td class="tier-label">Enhanced</td>
+                        <td>Third-party security audit completed. Multiple independent attestations. Continuous behavioral monitoring.</td>
+                        <td>Highest possible scores. Eligible for AAA grade.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="content-section">
+            <h2>Future Governance Milestones</h2>
+            <ul>
+                <li><strong>Technical Steering Committee</strong> — Elected body to oversee specification evolution (planned for Q4 2026)</li>
+                <li><strong>Verifier Certification Program</strong> — Standards and process for certifying independent verifiers</li>
+                <li><strong>Community Advisory Council</strong> — Representatives from different stakeholder groups (developers, enterprises, researchers, civil society)</li>
+                <li><strong>Legal Structure</strong> — 501(c)(3) nonprofit filing (in progress)</li>
+            </ul>
+        </div>
+
+        <div class="content-section">
+            <h2>Get Involved</h2>
+            <p>Governance works best with diverse input. You can participate by:</p>
+            <ul>
+                <li>Joining <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry/discussions" style="color:var(--primary);" target="_blank" rel="noopener">GitHub Discussions</a> — propose changes, ask questions, give feedback</li>
+                <li>Reviewing the <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry/blob/main/docs/SPECIFICATION.md" style="color:var(--primary);" target="_blank" rel="noopener">specification</a> and <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry/blob/main/docs/TRUST-SCORE.md" style="color:var(--primary);" target="_blank" rel="noopener">trust methodology</a></li>
+                <li>Emailing <a href="mailto:foundation@agentidentityregistry.org" style="color:var(--primary);">foundation@agentidentityregistry.org</a></li>
+            </ul>
+        </div>
+    </div>
+</main>
+
+<footer>
+    <div class="container">
+        <div class="footer-brand">AIR</div>
+        <p>&copy; 2026 Agent Identity Registry Foundation. Specifications released under Apache 2.0.</p>
+        <p style="margin-top:0.5rem;"><a href="/">Home</a> &middot; <a href="/lookup">Lookup</a> &middot; <a href="/about">About</a> &middot; <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry" target="_blank" rel="noopener">GitHub</a> &middot; <a href="/contact">Contact</a></p>
+    </div>
+</footer>
+</body>
+</html>

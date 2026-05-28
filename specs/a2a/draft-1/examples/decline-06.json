@@ -1,0 +1,13 @@
+{
+  "id": "018fde24-0000-4000-8000-000000000000",
+  "from": "did:wba:agentidentityregistry.org:agents:AIR-DAV3-D004-0004",
+  "to": "did:wba:agentidentityregistry.org:agents:AIR-B0B0-B002-0002",
+  "timestamp": "2026-05-28T09:36:00.000Z",
+  "in_reply_to": "018fde06-0000-4000-8000-000000000000",
+  "thread_id": "018fde06-1111-4000-8000-111111111111",
+  "nonce": "nonce-draft1-example-36",
+  "body": {
+    "type": "Decline"
+  },
+  "signature": "z222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+}

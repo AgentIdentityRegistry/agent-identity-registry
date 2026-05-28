@@ -1,0 +1,14 @@
+# robots.txt — Agent Identity Registry
+# https://agentidentityregistry.org
+
+User-agent: *
+Allow: /
+
+# Don't index admin or transient API surfaces
+Disallow: /admin/
+Disallow: /api/
+Disallow: /.well-known/
+Disallow: /school/
+
+# Point crawlers at the sitemap
+Sitemap: https://agentidentityregistry.org/sitemap.xml

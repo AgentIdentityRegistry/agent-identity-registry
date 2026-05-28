@@ -1,0 +1,19 @@
+{
+  "id": "018fde0e-0000-4000-8000-000000000000",
+  "from": "did:wba:agentidentityregistry.org:agents:AIR-ALIC-E001-0001",
+  "to": "did:wba:agentidentityregistry.org:agents:AIR-DAV3-D004-0004",
+  "timestamp": "2026-05-28T09:14:00.000Z",
+  "in_reply_to": "018fde04-0000-4000-8000-000000000000",
+  "thread_id": "018fde04-1111-4000-8000-111111111111",
+  "nonce": "nonce-draft1-example-14",
+  "body": {
+    "type": "Counter",
+    "description": "日本語翻訳、500語、機械翻訳品質。",
+    "price": {
+      "amount_cents": 40000,
+      "currency": "JPY"
+    },
+    "expires_at": "2026-05-28T11:14:00.000Z"
+  },
+  "signature": "z222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+}

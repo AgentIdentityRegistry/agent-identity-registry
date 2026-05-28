@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AIR — The global identity standard and trust framework for AI agents. Verifiable identity, transparent scoring, neutral governance.">
+
+    <!-- Open Graph + Twitter Card -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Agent Identity Registry">
+    <meta property="og:title" content="AIR — The Global Identity Standard for AI Agents">
+    <meta property="og:description" content="Verifiable identity, transparent trust scores, neutral governance. Open infrastructure for the AI agent web.">
+    <meta property="og:url" content="https://agentidentityregistry.org/">
+    <meta property="og:image" content="https://agentidentityregistry.org/assets/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="AIR — The global identity standard for AI agents">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="AIR — The Global Identity Standard for AI Agents">
+    <meta name="twitter:description" content="Verifiable identity, transparent trust scores, neutral governance. Open infrastructure for the AI agent web.">
+    <meta name="twitter:image" content="https://agentidentityregistry.org/assets/og-image.png">
+    <link rel="canonical" href="https://agentidentityregistry.org/">
+
+    <title>AIR — Agent Identity Registry</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Work+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1E3A8A;
+            --primary-dark: #172554;
+            --primary-light: #2563EB;
+            --accent: #B45309;
+            --accent-light: #D97706;
+            --accent-gold: #F59E0B;
+            --text: #0F172A;
+            --text-secondary: #475569;
+            --text-muted: #64748B;
+            --bg: #FFFFFF;
+            --bg-warm: #F8FAFC;
+            --bg-tint: #F0F4FF;
+            --border: #CBD5E1;
+            --border-light: #E2E8F0;
+            --success: #059669;
+            --card: #FFFFFF;
+            --ring: #1E3A8A;
+            --destructive: #DC2626;
+            --grid-gap: 1.5rem;
+            --section-pad: 7rem;
+            --radius: 0.5rem;
+        }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        html { scroll-behavior:smooth; font-size:16px; }
+        body {
+            font-family:'Work Sans', system-ui, -apple-system, sans-serif;
+            line-height:1.6; color:var(--text); background:var(--bg);
+            -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+        }
+        h1,h2,h3,h4,h5 { font-family:'Outfit', sans-serif; font-weight:700; line-height:1.15; }
+
+        /* === NAV === */
+        .nav { position:sticky; top:0; z-index:50; background:rgba(255,255,255,0.95); backdrop-filter:blur(12px); border-bottom:1px solid var(--border-light); }
+        .nav-inner { max-width:1200px; margin:0 auto; padding:1rem 2rem; display:flex; align-items:center; justify-content:space-between; }
+        .nav-brand { display:flex; align-items:center; gap:0.75rem; text-decoration:none; color:var(--primary); }
+        .nav-brand-mark { font-family:'Outfit'; font-weight:800; font-size:1.6rem; letter-spacing:-1px; }
+        .nav-brand-label { font-size:0.65rem; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:var(--text-muted); }
+        .nav-links { display:flex; gap:2rem; align-items:center; }
+        .nav-links a { text-decoration:none; color:var(--text-secondary); font-size:0.9rem; font-weight:500; transition:color 0.2s; }
+        .nav-links a:hover { color:var(--primary); }
+        .nav-links a.btn-primary { color:#fff; font-size:0.95rem; font-weight:600; }
+        .nav-links a.btn-primary:hover { color:#fff; }
+        @media(max-width:768px){ .nav-links{ display:none; } }
+
+        /* === LAYOUT === */
+        .container { max-width:1200px; margin:0 auto; padding:0 2rem; }
+        .section { padding:var(--section-pad) 0; }
+        .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:4rem; align-items:center; }
+        @media(max-width:768px){ .grid-2{ grid-template-columns:1fr; gap:2.5rem; } }
+
+        /* === HERO === */
+        .hero { padding:6rem 0 7rem; background:var(--bg); position:relative; overflow:hidden; }
+        .hero::after { content:''; position:absolute; top:-200px; right:-200px; width:600px; height:600px; background:radial-gradient(circle,rgba(30,58,138,0.04) 0%,transparent 70%); pointer-events:none; }
+        .hero-eyebrow { font-size:0.8rem; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:var(--accent); margin-bottom:1.5rem; }
+        .hero h1 { font-size:clamp(2.8rem,5.5vw,4.2rem); font-weight:800; letter-spacing:-1.5px; color:var(--primary-dark); margin-bottom:1.5rem; max-width:700px; }
+        .hero h1 span { color:var(--primary-light); }
+        .hero-sub { font-size:1.2rem; color:var(--text-secondary); max-width:560px; line-height:1.7; margin-bottom:2.5rem; }
+        .hero-actions { display:flex; gap:1rem; flex-wrap:wrap; }
+        .btn { display:inline-flex; align-items:center; gap:0.5rem; padding:0.85rem 1.75rem; border-radius:var(--radius); font-family:'Outfit'; font-weight:600; font-size:0.95rem; text-decoration:none; transition:all 0.2s; border:none; cursor:pointer; }
+        .btn-primary { background:var(--primary); color:#fff; }
+        .btn-primary:hover { background:var(--primary-light); transform:translateY(-2px); box-shadow:0 8px 24px rgba(30,58,138,0.25); }
+        .btn-outline { background:transparent; color:var(--primary); border:2px solid var(--border); }
+        .btn-outline:hover { border-color:var(--primary); background:var(--bg-tint); }
+
+        .hero-visual { position:relative; }
+        .hero-card { background:var(--card); border:1px solid var(--border-light); border-radius:0.75rem; padding:2rem; box-shadow:0 8px 30px rgba(0,0,0,0.06); }
+        .hero-card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; padding-bottom:1rem; border-bottom:1px solid var(--border-light); }
+        .hero-card-title { font-family:'Outfit'; font-weight:700; color:var(--primary-dark); font-size:1rem; }
+        .hero-card-badge { background:var(--success); color:#fff; font-size:0.7rem; font-weight:700; padding:0.3rem 0.7rem; border-radius:2rem; letter-spacing:0.5px; }
+        .hero-card-id { font-family:'Courier New',monospace; font-size:0.8rem; color:var(--text-muted); margin-bottom:1.25rem; }
+        .score-row { display:flex; align-items:baseline; gap:0.75rem; margin-bottom:1.5rem; }
+        .score-big { font-family:'Outfit'; font-size:3.5rem; font-weight:800; color:var(--primary); line-height:1; }
+        .score-grade { font-family:'Outfit'; font-size:1.5rem; font-weight:700; color:var(--accent); }
+        .score-label { font-size:0.8rem; color:var(--text-muted); }
+        .score-bar-bg { width:100%; height:6px; background:var(--border-light); border-radius:3px; margin-bottom:1.5rem; overflow:hidden; }
+        .score-bar-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--primary),var(--primary-light)); width:94.2%; transition:width 1.5s ease; }
+        .component-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; }
+        .component-item { background:var(--bg-warm); padding:0.75rem 1rem; border-radius:var(--radius); }
+        .component-name { font-size:0.75rem; color:var(--text-muted); font-weight:500; margin-bottom:0.25rem; }
+        .component-score { font-family:'Outfit'; font-size:1.3rem; font-weight:700; color:var(--primary); }
+
+        /* === TRUST STRIP === */
+        .trust-strip { background:var(--bg-warm); border-top:1px solid var(--border-light); border-bottom:1px solid var(--border-light); padding:2rem 0; }
+        .trust-strip-inner { display:flex; justify-content:center; align-items:center; gap:3rem; flex-wrap:wrap; }
+        .trust-strip-item { font-size:0.85rem; color:var(--text-muted); font-weight:500; display:flex; align-items:center; gap:0.5rem; }
+        .trust-strip-icon { width:20px; height:20px; display:inline-flex; align-items:center; justify-content:center; }
+        .trust-strip-icon svg { width:16px; height:16px; stroke:var(--success); fill:none; stroke-width:2; }
+
+        /* === WHY === */
+        .why { background:var(--bg); }
+        .section-label { font-size:0.75rem; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:var(--accent); margin-bottom:1rem; }
+        .section-title { font-size:clamp(2rem,4vw,2.8rem); letter-spacing:-1px; color:var(--primary-dark); margin-bottom:1rem; }
+        .section-desc { font-size:1.1rem; color:var(--text-secondary); max-width:540px; line-height:1.7; }
+        .why-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:1.5rem; margin-top:3rem; }
+        @media(max-width:768px){ .why-cards{ grid-template-columns:1fr; } }
+        .why-card { padding:2rem; border-radius:0.75rem; border:1px solid var(--border-light); background:var(--card); transition:border-color 0.2s, box-shadow 0.2s; }
+        .why-card:hover { border-color:var(--primary-light); box-shadow:0 4px 20px rgba(30,58,138,0.08); }
+        .why-card-icon { width:44px; height:44px; border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:1.25rem; }
+        .why-card-icon svg { width:22px; height:22px; stroke-width:2; }
+        .icon-blue { background:var(--bg-tint); }
+        .icon-blue svg { stroke:var(--primary); fill:none; }
+        .icon-gold { background:#FEF3C7; }
+        .icon-gold svg { stroke:var(--accent); fill:none; }
+        .icon-green { background:#ECFDF5; }
+        .icon-green svg { stroke:var(--success); fill:none; }
+        .why-card h3 { font-size:1.15rem; color:var(--primary-dark); margin-bottom:0.5rem; }
+        .why-card p { font-size:0.95rem; color:var(--text-secondary); line-height:1.65; }
+
+        /* === HOW === */
+        .how { background:var(--bg-warm); }
+        .steps { display:grid; grid-template-columns:repeat(4,1fr); gap:1.5rem; margin-top:3rem; }
+        @media(max-width:768px){ .steps{ grid-template-columns:1fr 1fr; } }
+        @media(max-width:480px){ .steps{ grid-template-columns:1fr; } }
+        .step { text-align:center; padding:2rem 1.5rem; }
+        .step-num { font-family:'Outfit'; font-size:2.5rem; font-weight:800; color:var(--primary); opacity:0.15; margin-bottom:0.5rem; }
+        .step h3 { font-size:1.1rem; color:var(--primary-dark); margin-bottom:0.5rem; }
+        .step p { font-size:0.9rem; color:var(--text-secondary); line-height:1.6; }
+
+        /* === SCORE SECTION === */
+        .score-section { background:var(--bg); }
+        .score-methodology { margin-top:2.5rem; }
+        .method-item { display:flex; gap:1rem; align-items:flex-start; padding:1rem 0; border-bottom:1px solid var(--border-light); }
+        .method-item:last-child { border-bottom:none; }
+        .method-weight { font-family:'Outfit'; font-weight:800; font-size:1.1rem; color:var(--primary); min-width:45px; }
+        .method-name { font-weight:600; color:var(--primary-dark); margin-bottom:0.15rem; font-size:0.95rem; }
+        .method-desc { font-size:0.85rem; color:var(--text-muted); }
+
+        .score-table { width:100%; }
+        .score-table-card { background:var(--card); border:1px solid var(--border-light); border-radius:0.75rem; overflow:hidden; }
+        .score-table table { width:100%; border-collapse:collapse; font-size:0.9rem; }
+        .score-table th { background:var(--primary-dark); color:#fff; font-family:'Outfit'; font-weight:600; padding:0.85rem 1.25rem; text-align:left; font-size:0.8rem; letter-spacing:1px; text-transform:uppercase; }
+        .score-table td { padding:0.85rem 1.25rem; border-bottom:1px solid var(--border-light); color:var(--text-secondary); }
+        .score-table tr:last-child td { border-bottom:none; }
+        .score-table tr:hover td { background:var(--bg-tint); }
+        .grade-badge { font-family:'Outfit'; font-weight:700; font-size:0.85rem; padding:0.2rem 0.6rem; border-radius:4px; }
+        .grade-aaa { background:#DBEAFE; color:var(--primary); }
+        .grade-aa { background:#E0F2FE; color:#0369A1; }
+        .grade-a { background:#ECFDF5; color:var(--success); }
+        .grade-b { background:#FEF3C7; color:var(--accent); }
+        .grade-c { background:#FEE2E2; color:var(--destructive); }
+
+        /* === STANDARDS === */
+        .standards { background:var(--primary-dark); color:#fff; }
+        .standards .section-label { color:var(--accent-gold); }
+        .standards .section-title { color:#fff; }
+        .standards .section-desc { color:rgba(255,255,255,0.75); }
+        .badge-row { display:flex; gap:1rem; flex-wrap:wrap; margin-top:2rem; }
+        .std-badge { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:rgba(255,255,255,0.9); padding:0.6rem 1.25rem; border-radius:2rem; font-size:0.85rem; font-weight:500; }
+
+        /* === DEVELOPERS === */
+        .devs { background:var(--bg); }
+        .code-block { background:var(--primary-dark); color:#E2E8F0; border-radius:0.75rem; padding:2rem; font-family:'JetBrains Mono','Courier New',monospace; font-size:0.85rem; line-height:1.8; overflow-x:auto; }
+        .code-block .cm { color:#64748B; }
+        .code-block .kw { color:#93C5FD; }
+        .code-block .str { color:#86EFAC; }
+        .code-block .num { color:#FDE68A; }
+
+        /* === GOVERNANCE === */
+        .governance { background:var(--bg-warm); }
+        .gov-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1.5rem; margin-top:2.5rem; }
+        @media(max-width:768px){ .gov-grid{ grid-template-columns:1fr; } }
+        .gov-card { padding:1.75rem; border-left:3px solid var(--primary); background:var(--card); border-radius:0 var(--radius) var(--radius) 0; }
+        .gov-card h4 { font-size:1rem; color:var(--primary-dark); margin-bottom:0.4rem; }
+        .gov-card p { font-size:0.9rem; color:var(--text-secondary); line-height:1.6; }
+
+        /* === CTA === */
+        .final-cta { background:var(--primary); color:#fff; text-align:center; padding:5rem 0; }
+        .final-cta h2 { color:#fff; font-size:clamp(2rem,4vw,2.5rem); letter-spacing:-0.5px; margin-bottom:1rem; }
+        .final-cta p { color:rgba(255,255,255,0.8); font-size:1.1rem; max-width:500px; margin:0 auto 2rem; }
+        .btn-white { background:#fff; color:var(--primary); }
+        .btn-white:hover { background:#F0F4FF; transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,0.15); }
+        .btn-ghost { background:transparent; color:#fff; border:2px solid rgba(255,255,255,0.4); }
+        .btn-ghost:hover { border-color:#fff; background:rgba(255,255,255,0.1); }
+
+        /* === FOOTER === */
+        footer { background:var(--primary-dark); color:rgba(255,255,255,0.7); padding:3.5rem 0 2rem; }
+        .footer-grid { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:2rem; margin-bottom:3rem; }
+        @media(max-width:768px){ .footer-grid{ grid-template-columns:1fr 1fr; } }
+        .footer-brand { font-family:'Outfit'; font-weight:800; font-size:1.4rem; color:#fff; margin-bottom:0.5rem; }
+        .footer-tagline { font-size:0.85rem; color:rgba(255,255,255,0.5); line-height:1.6; max-width:280px; }
+        footer h5 { font-family:'Outfit'; font-size:0.8rem; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:rgba(255,255,255,0.4); margin-bottom:1rem; }
+        footer a { display:block; color:rgba(255,255,255,0.65); text-decoration:none; font-size:0.9rem; margin-bottom:0.6rem; transition:color 0.2s; }
+        footer a:hover { color:#fff; }
+        .footer-bottom { border-top:1px solid rgba(255,255,255,0.08); padding-top:2rem; font-size:0.8rem; color:rgba(255,255,255,0.35); text-align:center; }
+
+        /* === UTILITIES === */
+        .text-center { text-align:center; }
+        .fade-in { opacity:0; transform:translateY(16px); transition:opacity 0.5s ease, transform 0.5s ease; }
+        .fade-in.visible { opacity:1; transform:translateY(0); }
+
+        /* === FOCUS STATES (WCAG) === */
+        a:focus-visible, button:focus-visible { outline:3px solid var(--primary-light); outline-offset:2px; border-radius:2px; }
+        @media(prefers-reduced-motion:reduce){ *, *::before, *::after { animation-duration:0.01ms !important; transition-duration:0.01ms !important; } }
+    </style>
+</head>
+<body>
+
+<!-- NAV -->
+<header class="nav" role="banner">
+    <div class="nav-inner">
+        <a href="/" class="nav-brand" aria-label="AIR Home">
+            <div>
+                <div class="nav-brand-mark">AIR</div>
+                <div class="nav-brand-label">Agent Identity Registry</div>
+            </div>
+        </a>
+        <nav class="nav-links" role="navigation" aria-label="Main navigation">
+            <a href="#why">Why AIR</a>
+            <a href="#how">How It Works</a>
+            <a href="#score">Trust Score</a>
+            <a href="#developers">Developers</a>
+            <a href="/register" class="btn btn-primary">Register an Agent</a>
+        </nav>
+    </div>
+</header>
+
+<!-- HERO -->
+<section class="hero section">
+    <div class="container grid-2">
+        <div>
+            <div class="hero-eyebrow">A Neutral Global Standard</div>
+            <h1>Identity and trust for <span>every AI agent</span></h1>
+            <p class="hero-sub">AIR is the independent, nonprofit registry that gives AI agents verifiable identity and transparent trust scoring. Built on W3C open standards. Controlled by no single company.</p>
+            <div class="hero-actions">
+                <a href="/register" class="btn btn-primary">Register an Agent</a>
+                <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry/blob/main/docs/SPECIFICATION.md" class="btn btn-outline">Read the Specification</a>
+            </div>
+        </div>
+        <div class="hero-visual">
+            <div class="hero-card">
+                <div class="hero-card-header">
+                    <div class="hero-card-title">ResearchBot-v3</div>
+                    <div class="hero-card-badge">VERIFIED</div>
+                </div>
+                <div class="hero-card-id">AIR-KX7R-M4NP-2FTQ &middot; Acme AI Corp</div>
+                <div class="score-row">
+                    <div class="score-big">942</div>
+                    <div>
+                        <div class="score-grade">Grade AA</div>
+                        <div class="score-label">out of 1,000</div>
+                    </div>
+                </div>
+                <div class="score-bar-bg"><div class="score-bar-fill" role="progressbar" aria-valuenow="942" aria-valuemin="0" aria-valuemax="1000"></div></div>
+                <div class="component-grid">
+                    <div class="component-item"><div class="component-name">Provenance</div><div class="component-score">238 / 250</div></div>
+                    <div class="component-item"><div class="component-name">Behavior</div><div class="component-score">221 / 250</div></div>
+                    <div class="component-item"><div class="component-name">Transparency</div><div class="component-score">192 / 200</div></div>
+                    <div class="component-item"><div class="component-name">Security</div><div class="component-score">138 / 150</div></div>
+                    <div class="component-item" style="grid-column:1/-1;"><div class="component-name">Peer Attestations</div><div class="component-score">153 / 150 (bonus)</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- TRUST STRIP -->
+<div class="trust-strip">
+    <div class="trust-strip-inner">
+        <div class="trust-strip-item">
+            <span class="trust-strip-icon"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>
+            W3C DID Compliant
+        </div>
+        <div class="trust-strip-item">
+            <span class="trust-strip-icon"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>
+            NIST Level 3 Aligned
+        </div>
+        <div class="trust-strip-item">
+            <span class="trust-strip-icon"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>
+            EU AI Act Ready
+        </div>
+        <div class="trust-strip-item">
+            <span class="trust-strip-icon"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>
+            Open Source
+        </div>
+        <div class="trust-strip-item">
+            <span class="trust-strip-icon"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>
+            Independent Nonprofit
+        </div>
+    </div>
+</div>
+
+<!-- WHY AIR -->
+<section class="why section" id="why">
+    <div class="container">
+        <div class="section-label">The Problem</div>
+        <h2 class="section-title">AI agents are everywhere.<br>Trust infrastructure isn't.</h2>
+        <p class="section-desc">Billions of AI agents are being deployed with no standardized way to verify who built them, what they do, or whether they can be trusted. AIR fixes this.</p>
+
+        <div class="why-cards">
+            <div class="why-card fade-in">
+                <div class="why-card-icon icon-blue">
+                    <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <h3>Verifiable Identity</h3>
+                <p>Every registered agent receives a cryptographically anchored AIR ID linked to its verified owner. No spoofing. No ambiguity.</p>
+            </div>
+            <div class="why-card fade-in">
+                <div class="why-card-icon icon-gold">
+                    <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                </div>
+                <h3>Transparent Trust Score</h3>
+                <p>A 0-1000 score across five auditable dimensions. Open methodology. No black boxes. Anyone can verify how a score was calculated.</p>
+            </div>
+            <div class="why-card fade-in">
+                <div class="why-card-icon icon-green">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg>
+                </div>
+                <h3>Neutral Governance</h3>
+                <p>AIR is an independent initiative. No single AI company controls the standard. All decisions are made transparently with community input.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how section" id="how">
+    <div class="container">
+        <div class="text-center">
+            <div class="section-label">Process</div>
+            <h2 class="section-title">Four steps to verified identity</h2>
+        </div>
+        <div class="steps">
+            <div class="step fade-in">
+                <div class="step-num">01</div>
+                <h3>Register</h3>
+                <p>Submit your agent's identity, capabilities, and operator information to the AIR registry via API or web form.</p>
+            </div>
+            <div class="step fade-in">
+                <div class="step-num">02</div>
+                <h3>Verify</h3>
+                <p>Prove ownership through cryptographic challenge. Your identity is anchored to a W3C Decentralized Identifier.</p>
+            </div>
+            <div class="step fade-in">
+                <div class="step-num">03</div>
+                <h3>Score</h3>
+                <p>Receive a transparent trust score based on provenance, behavior, transparency, security, and peer attestations.</p>
+            </div>
+            <div class="step fade-in">
+                <div class="step-num">04</div>
+                <h3>Operate</h3>
+                <p>Other agents and systems verify your identity and trust rating before establishing connections or processing requests.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- TRUST SCORE -->
+<section class="score-section section" id="score">
+    <div class="container grid-2">
+        <div>
+            <div class="section-label">Methodology</div>
+            <h2 class="section-title">Trust, measured transparently</h2>
+            <p class="section-desc">The AIR Trust Score is a composite of five independently auditable components. The full methodology is published openly.</p>
+            <div class="score-methodology">
+                <div class="method-item">
+                    <div class="method-weight">25%</div>
+                    <div><div class="method-name">Provenance</div><div class="method-desc">Verified creator identity, code signing, organizational track record</div></div>
+                </div>
+                <div class="method-item">
+                    <div class="method-weight">25%</div>
+                    <div><div class="method-name">Behavioral History</div><div class="method-desc">Uptime, error rates, policy compliance, incident history</div></div>
+                </div>
+                <div class="method-item">
+                    <div class="method-weight">20%</div>
+                    <div><div class="method-name">Transparency</div><div class="method-desc">Identity disclosure, capability documentation, boundary respect</div></div>
+                </div>
+                <div class="method-item">
+                    <div class="method-weight">15%</div>
+                    <div><div class="method-name">Security Posture</div><div class="method-desc">Authentication strength, encryption, vulnerability history</div></div>
+                </div>
+                <div class="method-item">
+                    <div class="method-weight">15%</div>
+                    <div><div class="method-name">Peer Attestations</div><div class="method-desc">Endorsements and reports from other verified agents and services</div></div>
+                </div>
+            </div>
+        </div>
+        <div class="score-table">
+            <div class="score-table-card">
+                <table>
+                    <thead><tr><th>Grade</th><th>Score Range</th><th>Meaning</th></tr></thead>
+                    <tbody>
+                        <tr><td><span class="grade-badge grade-aaa">AAA</span></td><td>950 &ndash; 1000</td><td>Exceptional. Highest verified trust.</td></tr>
+                        <tr><td><span class="grade-badge grade-aa">AA</span></td><td>850 &ndash; 949</td><td>Excellent. Fully production-ready.</td></tr>
+                        <tr><td><span class="grade-badge grade-a">A</span></td><td>700 &ndash; 849</td><td>Good. Meets standard requirements.</td></tr>
+                        <tr><td><span class="grade-badge grade-b">B</span></td><td>500 &ndash; 699</td><td>Fair. Limited verification or history.</td></tr>
+                        <tr><td><span class="grade-badge grade-c">C</span></td><td>Below 500</td><td>Insufficient. Verification incomplete.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- OPEN STANDARDS -->
+<section class="standards section" id="standards">
+    <div class="container text-center">
+        <div class="section-label">Foundation</div>
+        <h2 class="section-title">Built on open standards, not proprietary lock-in</h2>
+        <p class="section-desc" style="margin:0 auto;">AIR builds on established protocols endorsed by the W3C, IETF, and aligned with the NIST AI Agent Standards Initiative.</p>
+        <div class="badge-row" style="justify-content:center;">
+            <div class="std-badge">W3C Decentralized Identifiers</div>
+            <div class="std-badge">Verifiable Credentials</div>
+            <div class="std-badge">IETF RATS Architecture</div>
+            <div class="std-badge">OAuth 2.0 / OIDC</div>
+            <div class="std-badge">Ed25519 Signatures</div>
+        </div>
+    </div>
+</section>
+
+<!-- DEVELOPERS -->
+<section class="devs section" id="developers">
+    <div class="container grid-2">
+        <div class="code-block">
+<span class="cm"># Python SDK + CLI</span>
+<span class="kw">$</span> pip install agent-identity-registry
+<span class="kw">$</span> air health
+  Registry AIR
+  status   ok
+
+<span class="cm"># MCP server for Claude Code, Cursor, Codex</span>
+<span class="kw">$</span> pip install air-mcp-server
+
+<span class="cm"># Then in your MCP config:</span>
+{
+  <span class="str">"mcpServers"</span>: {
+    <span class="str">"air"</span>: { <span class="str">"command"</span>: <span class="str">"air-mcp-server"</span> }
+  }
+}
+
+<span class="cm"># Native HTTP for any language —</span>
+<span class="cm"># OpenAPI 3.1 spec ready to drop into</span>
+<span class="cm"># openapi-generator, oapi-codegen, etc:</span>
+<span class="kw">GET</span> /api/v1/openapi.yaml
+        </div>
+        <div>
+            <div class="section-label">Integrate</div>
+            <h2 class="section-title">Ship in five minutes</h2>
+            <p class="section-desc">Python SDK + CLI on PyPI. MCP server for any LLM client. OpenAPI 3.1 spec for native code generation in TypeScript, Go, Rust, Java, and beyond.</p>
+            <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:2rem;">
+                <a href="/developers" class="btn btn-primary">Developer Guide</a>
+                <a href="https://agentidentityregistry.org/api/v1/openapi.yaml" class="btn btn-outline" target="_blank" rel="noopener">OpenAPI Spec</a>
+            </div>
+            <p style="margin-top:1.5rem;font-size:0.85rem;color:var(--text-muted);">
+                <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry-python" target="_blank" rel="noopener" style="color:var(--text-secondary);">Python SDK</a>
+                &middot;
+                <a href="https://github.com/AgentIdentityRegistry/air-mcp-server" target="_blank" rel="noopener" style="color:var(--text-secondary);">MCP Server</a>
+                &middot;
+                <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry" target="_blank" rel="noopener" style="color:var(--text-secondary);">Specification</a>
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- GOVERNANCE -->
+<section class="governance section" id="governance">
+    <div class="container">
+        <div class="text-center">
+            <div class="section-label">Governance</div>
+            <h2 class="section-title">Independent by design</h2>
+            <p class="section-desc" style="margin:0 auto;">AIR is an independent nonprofit initiative. No single company controls the standard. All decisions are made transparently.</p>
+        </div>
+        <div class="gov-grid">
+            <div class="gov-card fade-in">
+                <h4>Open Governance</h4>
+                <p>All specification changes go through public review. Community input drives decisions via GitHub Discussions.</p>
+            </div>
+            <div class="gov-card fade-in">
+                <h4>Open Methodology</h4>
+                <p>Scoring algorithms, verification processes, and registry rules are published openly and developed with community input.</p>
+            </div>
+            <div class="gov-card fade-in">
+                <h4>Security Commitment</h4>
+                <p>Registry infrastructure secured with rate limiting, input validation, and API key protection. Third-party audits planned as the registry scales.</p>
+            </div>
+            <div class="gov-card fade-in">
+                <h4>Data Portability</h4>
+                <p>Built on W3C open standards. Your agent's identity and history are portable. No vendor lock-in, ever.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="final-cta">
+    <div class="container">
+        <h2>The standard starts with adoption</h2>
+        <p>Register your first agent, explore the specification, or join the community building the trust layer for the agentic era.</p>
+        <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">
+            <a href="/register" class="btn btn-white">Register an Agent</a>
+            <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry/blob/main/docs/SPECIFICATION.md" class="btn btn-ghost">Read the Spec</a>
+        </div>
+    </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+    <div class="container">
+        <div class="footer-grid">
+            <div>
+                <div class="footer-brand">AIR</div>
+                <p class="footer-tagline">The Agent Identity Registry Foundation. An independent nonprofit building the global identity standard for AI agents.</p>
+            </div>
+            <div>
+                <h5>About</h5>
+                <a href="/about">Mission</a>
+                <a href="/governance">Governance</a>
+                <a href="#">Advisory Board</a>
+                <a href="#">Press</a>
+            </div>
+            <div>
+                <h5>Developers</h5>
+                <a href="/developers">Documentation</a>
+                <a href="#developers">API Reference</a>
+                <a href="#">SDKs</a>
+                <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry">GitHub</a>
+            </div>
+            <div>
+                <h5>Resources</h5>
+                <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry/blob/main/docs/SPECIFICATION.md">Specification</a>
+                <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry/blob/main/docs/TRUST-SCORE.md">Trust Score Methodology</a>
+                <a href="/blog">Blog</a>
+                <a href="/contact">Contact</a>
+            </div>
+        </div>
+        <div class="footer-bottom">&copy; 2026 Agent Identity Registry Foundation. All specifications released under Apache 2.0.</div>
+    </div>
+</footer>
+
+<script>
+const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if(e.isIntersecting){ e.target.classList.add('visible'); obs.unobserve(e.target); } });
+}, { threshold:0.1, rootMargin:'0px 0px -40px 0px' });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', function(e){ const t=this.getAttribute('href'); if(t!=='#'){ e.preventDefault(); const el=document.querySelector(t); if(el) el.scrollIntoView({behavior:'smooth'}); } });
+});
+</script>
+</body>
+</html>

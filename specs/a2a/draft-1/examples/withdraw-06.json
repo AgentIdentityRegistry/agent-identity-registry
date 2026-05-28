@@ -1,0 +1,14 @@
+{
+  "id": "018fde2e-0000-4000-8000-000000000000",
+  "from": "did:wba:agentidentityregistry.org:agents:AIR-B0B0-B002-0002",
+  "to": "did:wba:agentidentityregistry.org:agents:AIR-DAV3-D004-0004",
+  "timestamp": "2026-05-28T09:46:00.000Z",
+  "in_reply_to": "018fde06-0000-4000-8000-000000000000",
+  "thread_id": "018fde06-1111-4000-8000-111111111111",
+  "nonce": "nonce-draft1-example-46",
+  "body": {
+    "type": "Withdraw",
+    "withdrawn_id": "018fde06-0000-4000-8000-000000000000"
+  },
+  "signature": "z222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+}

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="About the Agent Identity Registry — our mission, values, and the team building neutral trust infrastructure for AI agents.">
+
+    <!-- Open Graph + Twitter Card -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Agent Identity Registry">
+    <meta property="og:title" content="About AIR">
+    <meta property="og:description" content="Mission, values, and the small team building neutral trust infrastructure for the AI agent web. Read who we are and where we're headed.">
+    <meta property="og:url" content="https://agentidentityregistry.org/about/">
+    <meta property="og:image" content="https://agentidentityregistry.org/assets/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="AIR — The global identity standard for AI agents">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="About AIR">
+    <meta name="twitter:description" content="Mission, values, and the small team building neutral trust infrastructure for the AI agent web. Read who we are and where we're headed.">
+    <meta name="twitter:image" content="https://agentidentityregistry.org/assets/og-image.png">
+    <link rel="canonical" href="https://agentidentityregistry.org/about/">
+
+    <title>About — Agent Identity Registry</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Work+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary:#1E3A8A;--primary-dark:#172554;--primary-light:#2563EB;
+            --accent-gold:#F59E0B;--text:#0F172A;--text-secondary:#475569;--text-muted:#64748B;
+            --bg:#FFFFFF;--bg-warm:#F8FAFC;--bg-tint:#F0F4FF;--border:#CBD5E1;--border-light:#E2E8F0;
+            --success:#059669;--card:#FFFFFF;--radius:0.5rem;
+        }
+        *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+        html{scroll-behavior:smooth;font-size:16px;}
+        body{font-family:'Work Sans',system-ui,sans-serif;line-height:1.6;color:var(--text);background:var(--bg-warm);-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column;}
+        h1,h2,h3,h4{font-family:'Outfit',sans-serif;font-weight:700;line-height:1.15;}
+        .nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border-light);}
+        .nav-inner{max-width:1200px;margin:0 auto;padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;}
+        .nav-brand{display:flex;align-items:center;gap:0.75rem;text-decoration:none;color:var(--primary);}
+        .nav-brand-mark{font-family:'Outfit';font-weight:800;font-size:1.6rem;letter-spacing:-1px;}
+        .nav-brand-label{font-size:0.65rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);}
+        .nav-links{display:flex;gap:2rem;align-items:center;}
+        .nav-links a{text-decoration:none;color:var(--text-secondary);font-size:0.9rem;font-weight:500;transition:color 0.2s;}
+        .nav-links a:hover{color:var(--primary);}
+        .nav-cta{background:var(--primary);color:#fff!important;padding:0.55rem 1.25rem;border-radius:var(--radius);font-weight:600;font-size:0.85rem;text-decoration:none;transition:background 0.2s;}
+        .nav-cta:hover{background:var(--primary-light);}
+        @media(max-width:768px){.nav-links{display:none;}}
+
+        .hero{background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 50%,var(--primary-light) 100%);color:#fff;padding:3.5rem 0 4rem;text-align:center;}
+        .hero h1{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:800;letter-spacing:-1px;margin-bottom:0.5rem;}
+        .hero p{font-size:1.05rem;color:rgba(255,255,255,0.8);max-width:560px;margin:0 auto;}
+        .hero-tag{font-size:0.75rem;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--accent-gold);margin-bottom:0.75rem;}
+
+        .container{max-width:900px;margin:0 auto;padding:0 2rem;width:100%;}
+        main{flex:1;padding:3rem 0 4rem;}
+
+        .content-section{margin-bottom:3rem;}
+        .content-section h2{font-size:1.5rem;color:var(--primary-dark);margin-bottom:1rem;padding-bottom:0.5rem;border-bottom:2px solid var(--border-light);}
+        .content-section p{color:var(--text-secondary);margin-bottom:1rem;font-size:0.95rem;}
+        .content-section ul{color:var(--text-secondary);margin:0 0 1rem 1.5rem;font-size:0.95rem;}
+        .content-section li{margin-bottom:0.5rem;}
+
+        .values-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-top:1.25rem;}
+        @media(max-width:600px){.values-grid{grid-template-columns:1fr;}}
+        .value-card{background:var(--card);border:1px solid var(--border-light);border-radius:0.75rem;padding:1.5rem;}
+        .value-card h4{font-size:0.95rem;color:var(--primary-dark);margin-bottom:0.4rem;}
+        .value-card p{font-size:0.85rem;color:var(--text-muted);margin:0;}
+
+        .timeline{border-left:3px solid var(--primary-light);padding-left:1.5rem;margin-top:1.25rem;}
+        .timeline-item{margin-bottom:1.5rem;position:relative;}
+        .timeline-item::before{content:'';position:absolute;left:-1.75rem;top:0.4rem;width:10px;height:10px;background:var(--primary);border-radius:50%;}
+        .timeline-date{font-family:'Outfit';font-weight:700;font-size:0.85rem;color:var(--primary);}
+        .timeline-text{font-size:0.9rem;color:var(--text-secondary);}
+
+        footer{background:var(--primary-dark);color:rgba(255,255,255,0.6);padding:2rem 0;text-align:center;font-size:0.8rem;}
+        footer a{color:rgba(255,255,255,0.8);text-decoration:none;}
+        footer a:hover{color:#fff;}
+        .footer-brand{font-family:'Outfit';font-weight:800;font-size:1.2rem;color:#fff;margin-bottom:0.25rem;}
+    </style>
+</head>
+<body>
+
+<header class="nav">
+    <div class="nav-inner">
+        <a href="/" class="nav-brand"><div><div class="nav-brand-mark">AIR</div><div class="nav-brand-label">Agent Identity Registry</div></div></a>
+        <nav class="nav-links">
+            <a href="/">Home</a>
+            <a href="/lookup">ID Lookup</a>
+            <a href="/about" style="color:var(--primary);">About</a>
+            <a href="/developers">Developers</a>
+            <a href="/register" class="nav-cta">Register an Agent</a>
+        </nav>
+    </div>
+</header>
+
+<section class="hero">
+    <div class="container">
+        <div class="hero-tag">Our Mission</div>
+        <h1>Building Trust for the Agentic Era</h1>
+        <p>AIR is the neutral, open registry giving AI agents verifiable identity and transparent trust scoring.</p>
+    </div>
+</section>
+
+<main>
+    <div class="container">
+        <div class="content-section">
+            <h2>Why AIR Exists</h2>
+            <p>As AI agents become autonomous participants in commerce, infrastructure, and daily life, a fundamental question emerges: <strong>how do you know who you're interacting with?</strong></p>
+            <p>Today, AI agents have no standardized way to prove their identity, demonstrate their trustworthiness, or present verifiable credentials. Platforms build proprietary identity systems that don't interoperate. Users have no neutral source of truth.</p>
+            <p>AIR exists to fill this gap — a neutral registry where any agent, from any platform, can obtain a verifiable identity and earn a transparent trust score based on objective criteria.</p>
+        </div>
+
+        <div class="content-section">
+            <h2>Our Values</h2>
+            <div class="values-grid">
+                <div class="value-card">
+                    <h4>Neutrality</h4>
+                    <p>No single company controls the standard. AIR is designed to serve the public interest, not commercial interests.</p>
+                </div>
+                <div class="value-card">
+                    <h4>Transparency</h4>
+                    <p>All scoring algorithms, verification processes, and governance decisions are published openly. Every trust score is auditable.</p>
+                </div>
+                <div class="value-card">
+                    <h4>Interoperability</h4>
+                    <p>Built on W3C open standards (DIDs, Verifiable Credentials). Your agent's identity is portable across platforms.</p>
+                </div>
+                <div class="value-card">
+                    <h4>Honesty</h4>
+                    <p>We publish our actual status, not aspirational claims. Our roadmap reflects reality. We admit what we don't have yet.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-section">
+            <h2>What We've Built</h2>
+            <ul>
+                <li><strong>AIR Identity Specification v0.1</strong> — Defines the AIR ID format, agent identity documents, trust scoring methodology, and verification protocols</li>
+                <li><strong>Live Registry API</strong> — Working REST API on Cloudflare Workers with agent registration, lookup, and trust scoring</li>
+                <li><strong>Trust Score Methodology</strong> — Five-component model (Provenance, Behavioral, Transparency, Security, Peer Attestations) scored 0-1000</li>
+                <li><strong>Open Source</strong> — All code, specifications, and documentation publicly available on GitHub</li>
+            </ul>
+        </div>
+
+        <div class="content-section">
+            <h2>Timeline</h2>
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-date">Early 2026</div>
+                    <div class="timeline-text">Project founded. Initial specification drafted. Website and domain established.</div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-date">March 2026</div>
+                    <div class="timeline-text">Specification v0.1 published. Trust Score Methodology v1.0 released. GitHub repository launched with governance and contribution guides.</div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-date">April 2026</div>
+                    <div class="timeline-text">Live registry API deployed. Public comment submitted to NIST CAISI. Outreach to W3C, IETF AIMS, and DIF standards bodies. Registration form launched.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-section">
+            <h2>Standards Engagement</h2>
+            <p>AIR participates in the broader AI identity standards ecosystem. We don't build in isolation — we contribute to and build on existing standards efforts:</p>
+            <ul>
+                <li><strong>NIST CAISI</strong> — Public comment submitted on AI agent identity and authorization (April 2026)</li>
+                <li><strong>W3C AI Agent Protocol CG</strong> — Introduction and alignment discussion on trust layer for agent protocols</li>
+                <li><strong>IETF AIMS / WIMSE</strong> — Exploring how AIR trust scoring complements AIMS agent authentication</li>
+                <li><strong>DIF Trusted AI Agents WG</strong> — Contributing as a DID/VC-native implementation for AI agent trust</li>
+            </ul>
+        </div>
+
+        <div class="content-section">
+            <h2>Contact</h2>
+            <p>For inquiries, partnerships, or feedback:</p>
+            <ul>
+                <li><strong>Email:</strong> <a href="mailto:foundation@agentidentityregistry.org" style="color:var(--primary);">foundation@agentidentityregistry.org</a></li>
+                <li><strong>GitHub:</strong> <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry" style="color:var(--primary);" target="_blank" rel="noopener">github.com/AgentIdentityRegistry/agent-identity-registry</a></li>
+                <li><strong>GitHub Discussions:</strong> <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry/discussions" style="color:var(--primary);" target="_blank" rel="noopener">Community forum</a></li>
+            </ul>
+        </div>
+    </div>
+</main>
+
+<footer>
+    <div class="container">
+        <div class="footer-brand">AIR</div>
+        <p>&copy; 2026 Agent Identity Registry Foundation. Specifications released under Apache 2.0.</p>
+        <p style="margin-top:0.5rem;"><a href="/">Home</a> &middot; <a href="/lookup">Lookup</a> &middot; <a href="/governance">Governance</a> &middot; <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry" target="_blank" rel="noopener">GitHub</a> &middot; <a href="/contact">Contact</a></p>
+    </div>
+</footer>
+</body>
+</html>

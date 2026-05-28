@@ -1,0 +1,18 @@
+{
+  "id": "018fde05-0000-4000-8000-000000000000",
+  "from": "did:wba:agentidentityregistry.org:agents:AIR-ALIC-E001-0001",
+  "to": "did:wba:agentidentityregistry.org:agents:AIR-CAR0-L003-0003",
+  "timestamp": "2026-05-28T09:05:00.000Z",
+  "thread_id": "018fde05-1111-4000-8000-111111111111",
+  "nonce": "nonce-draft1-example-05",
+  "body": {
+    "type": "Offer",
+    "description": "Generate a 5-page market research summary.",
+    "price": {
+      "amount_cents": 12000,
+      "currency": "CAD"
+    },
+    "expires_at": "2026-05-28T11:05:00.000Z"
+  },
+  "signature": "z222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+}

@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIR Admin Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Work+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1E3A8A;
+            --primary-dark: #172554;
+            --primary-light: #2563EB;
+            --accent-gold: #F59E0B;
+            --text: #0F172A;
+            --text-secondary: #475569;
+            --text-muted: #64748B;
+            --bg: #F1F5F9;
+            --bg-card: #FFFFFF;
+            --border: #E2E8F0;
+            --success: #059669;
+            --success-bg: #DCFCE7;
+            --warning: #D97706;
+            --warning-bg: #FEF3C7;
+            --danger: #DC2626;
+            --danger-bg: #FEE2E2;
+            --radius: 0.75rem;
+        }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        html { font-size:16px; }
+        body {
+            font-family:'Work Sans', system-ui, sans-serif;
+            background:var(--bg); color:var(--text);
+            line-height:1.6; min-height:100vh;
+            -webkit-font-smoothing:antialiased;
+        }
+        h1,h2,h3,h4,h5 { font-family:'Outfit', sans-serif; font-weight:700; line-height:1.2; }
+
+        .auth-overlay {
+            position:fixed; inset:0; z-index:100;
+            background:linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+            display:flex; align-items:center; justify-content:center;
+        }
+        .auth-overlay.hidden { display:none; }
+        .auth-card {
+            background:var(--bg-card); border-radius:1rem; padding:2.5rem;
+            width:100%; max-width:400px; box-shadow:0 25px 50px rgba(0,0,0,0.25);
+            text-align:center;
+        }
+        .auth-logo { font-family:'Outfit'; font-weight:800; font-size:2rem; color:var(--primary); margin-bottom:0.25rem; }
+        .auth-subtitle { font-size:0.85rem; color:var(--text-muted); margin-bottom:2rem; }
+        .auth-input {
+            width:100%; padding:0.75rem 1rem; border:2px solid var(--border); border-radius:var(--radius);
+            font-family:'Work Sans', sans-serif; font-size:0.95rem; outline:none; transition:border-color 0.2s;
+        }
+        .auth-input:focus { border-color:var(--primary-light); }
+        .auth-input::placeholder { color:var(--text-muted); }
+        .auth-btn {
+            width:100%; margin-top:1rem; padding:0.75rem; border:none; border-radius:var(--radius);
+            background:var(--primary); color:#fff; font-family:'Outfit'; font-weight:600;
+            font-size:1rem; cursor:pointer; transition:background 0.2s;
+        }
+        .auth-btn:hover { background:var(--primary-light); }
+        .auth-error { color:var(--danger); font-size:0.85rem; margin-top:0.75rem; display:none; }
+
+        .topbar {
+            background:var(--primary-dark); color:#fff; padding:1rem 2rem;
+            display:flex; align-items:center; justify-content:space-between;
+            position:sticky; top:0; z-index:50;
+        }
+        .topbar-left { display:flex; align-items:center; gap:1rem; }
+        .topbar-logo { font-family:'Outfit'; font-weight:800; font-size:1.4rem; }
+        .topbar-label { font-size:0.7rem; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:rgba(255,255,255,0.5); }
+        .topbar-right { display:flex; align-items:center; gap:1rem; }
+        .topbar-link { color:rgba(255,255,255,0.7); text-decoration:none; font-size:0.85rem; transition:color 0.2s; }
+        .topbar-link:hover { color:#fff; }
+        .refresh-btn {
+            background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2);
+            color:#fff; padding:0.4rem 1rem; border-radius:var(--radius);
+            font-family:'Outfit'; font-weight:600; font-size:0.8rem; cursor:pointer; transition:all 0.2s;
+        }
+        .refresh-btn:hover { background:rgba(255,255,255,0.2); }
+        .refresh-btn.loading { opacity:0.6; pointer-events:none; }
+
+        .dashboard { max-width:1200px; margin:0 auto; padding:2rem; }
+        .dashboard-header { margin-bottom:2rem; }
+        .dashboard-header h1 { font-size:1.6rem; margin-bottom:0.25rem; }
+        .dashboard-header p { color:var(--text-muted); font-size:0.9rem; }
+        .last-updated { font-size:0.75rem; color:var(--text-muted); margin-top:0.25rem; }
+
+        .stat-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:1rem; margin-bottom:2rem; }
+        .stat-card {
+            background:var(--bg-card); border-radius:var(--radius); padding:1.5rem;
+            border:1px solid var(--border); transition:box-shadow 0.2s;
+        }
+        .stat-card:hover { box-shadow:0 4px 12px rgba(0,0,0,0.06); }
+        .stat-label { font-size:0.75rem; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem; }
+        .stat-value { font-family:'Outfit'; font-size:2.2rem; font-weight:800; color:var(--primary-dark); line-height:1; }
+        .stat-sub { font-size:0.8rem; color:var(--text-muted); margin-top:0.35rem; }
+        .stat-value.success { color:var(--success); }
+        .stat-value.warning { color:var(--warning); }
+
+        .section-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-bottom:2rem; }
+        @media(max-width:768px) { .section-grid { grid-template-columns:1fr; } }
+        .card { background:var(--bg-card); border-radius:var(--radius); border:1px solid var(--border); overflow:hidden; }
+        .card-header { padding:1.25rem 1.5rem; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+        .card-header h3 { font-size:0.95rem; }
+        .card-body { padding:1.5rem; }
+
+        .bar-chart { display:flex; flex-direction:column; gap:0.6rem; }
+        .bar-row { display:flex; align-items:center; gap:0.75rem; }
+        .bar-label { font-family:'Outfit'; font-weight:700; font-size:0.85rem; width:40px; text-align:center; }
+        .bar-track { flex:1; height:28px; background:var(--bg); border-radius:4px; overflow:hidden; }
+        .bar-fill { height:100%; border-radius:4px; transition:width 0.8s ease-out; display:flex; align-items:center; padding-left:0.5rem; }
+        .bar-fill span { font-size:0.75rem; font-weight:600; color:#fff; }
+        .bar-count { font-size:0.85rem; font-weight:600; color:var(--text-secondary); width:30px; text-align:right; }
+        .bar-aaa { background:linear-gradient(90deg, #059669, #10B981); }
+        .bar-aa { background:linear-gradient(90deg, #0D9488, #14B8A6); }
+        .bar-a { background:linear-gradient(90deg, #2563EB, #3B82F6); }
+        .bar-bbb { background:linear-gradient(90deg, #D97706, #F59E0B); }
+        .bar-bb { background:linear-gradient(90deg, #EA580C, #F97316); }
+        .bar-b { background:linear-gradient(90deg, #DC2626, #EF4444); }
+        .bar-c { background:linear-gradient(90deg, #991B1B, #DC2626); }
+
+        .gauge-wrapper { display:flex; flex-direction:column; align-items:center; padding:1rem 0; }
+        .gauge-value { font-family:'Outfit'; font-size:2.5rem; font-weight:800; color:var(--primary-dark); margin-top:0.75rem; }
+        .gauge-label { font-size:0.8rem; color:var(--text-muted); }
+
+        .table-wrapper { overflow-x:auto; }
+        table { width:100%; border-collapse:collapse; }
+        th {
+            text-align:left; padding:0.75rem 1rem; font-size:0.7rem; font-weight:600;
+            letter-spacing:1px; text-transform:uppercase; color:var(--text-muted);
+            border-bottom:2px solid var(--border); white-space:nowrap;
+        }
+        td { padding:0.75rem 1rem; border-bottom:1px solid var(--border); font-size:0.85rem; vertical-align:top; }
+        tr:last-child td { border-bottom:none; }
+        tr:hover td { background:var(--bg); }
+        .agent-name { font-weight:600; color:var(--primary-dark); }
+        .agent-id { font-family:'Courier New', monospace; font-size:0.8rem; color:var(--text-muted); }
+        .badge { display:inline-block; padding:0.15rem 0.5rem; border-radius:2rem; font-size:0.7rem; font-weight:600; letter-spacing:0.5px; }
+        .badge-verified { background:var(--success-bg); color:#166534; }
+        .badge-unverified { background:var(--danger-bg); color:#991B1B; }
+        .badge-demo { background:#F0F4FF; color:#4338CA; border:1px solid #C7D2FE; }
+        .badge-grade { font-family:'Outfit'; font-weight:700; font-size:0.75rem; padding:0.2rem 0.6rem; border-radius:4px; }
+        .grade-aaa { background:#DCFCE7; color:#166534; }
+        .grade-aa { background:#D1FAE5; color:#065F46; }
+        .grade-a { background:#DBEAFE; color:#1E40AF; }
+        .grade-bbb { background:#FEF9C3; color:#854D0E; }
+        .grade-bb { background:#FFEDD5; color:#9A3412; }
+        .grade-b { background:#FEE2E2; color:#991B1B; }
+        .grade-c { background:#FECACA; color:#7F1D1D; }
+        .score-cell { font-family:'Outfit'; font-weight:700; font-size:0.95rem; }
+        .date-cell { color:var(--text-muted); font-size:0.8rem; white-space:nowrap; }
+        .creator-cell { font-size:0.8rem; color:var(--text-secondary); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+        .loading-state { text-align:center; padding:3rem; color:var(--text-muted); }
+        .spinner { display:inline-block; width:24px; height:24px; border:3px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin 0.8s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+
+        @media(max-width:600px) { .dashboard { padding:1rem; } .stat-grid { grid-template-columns:1fr 1fr; } .topbar { padding:0.75rem 1rem; } }
+    </style>
+</head>
+<body>
+
+<div class="auth-overlay" id="authOverlay">
+    <div class="auth-card">
+        <div class="auth-logo">AIR</div>
+        <div class="auth-subtitle">Admin Dashboard</div>
+        <form id="authForm">
+            <input type="password" class="auth-input" id="keyInput" placeholder="Enter admin key" autocomplete="off">
+            <button type="submit" class="auth-btn">Sign In</button>
+            <div class="auth-error" id="authError">Invalid admin key. Please try again.</div>
+        </form>
+    </div>
+</div>
+
+<div class="topbar">
+    <div class="topbar-left">
+        <div>
+            <div class="topbar-logo">AIR</div>
+            <div class="topbar-label">Admin Dashboard</div>
+        </div>
+    </div>
+    <div class="topbar-right">
+        <a href="/" class="topbar-link">Website</a>
+        <a href="/lookup" class="topbar-link">Lookup</a>
+        <button class="refresh-btn" id="refreshBtn">Refresh</button>
+    </div>
+</div>
+
+<div class="dashboard">
+    <div class="dashboard-header">
+        <h1>Registry Overview</h1>
+        <p>Monitor agent registrations, trust scores, and verification status.</p>
+        <div class="last-updated" id="lastUpdated"></div>
+    </div>
+    <div class="stat-grid" id="statGrid"></div>
+    <div class="section-grid">
+        <div class="card">
+            <div class="card-header"><h3>Grade Distribution</h3></div>
+            <div class="card-body" id="gradeChart"><div class="loading-state"><div class="spinner"></div></div></div>
+        </div>
+        <div class="card">
+            <div class="card-header"><h3>Average Trust Score</h3></div>
+            <div class="card-body" id="gaugeChart"><div class="loading-state"><div class="spinner"></div></div></div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header">
+            <h3>Recent Registrations</h3>
+            <span style="font-size:0.8rem;color:var(--text-muted);" id="agentCount"></span>
+        </div>
+        <div class="card-body" style="padding:0;">
+            <div class="table-wrapper" id="agentTable"><div class="loading-state"><div class="spinner"></div></div></div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    "use strict";
+
+    var API = "/api/v1/admin";
+    var adminKey = sessionStorage.getItem("air_admin_key") || "";
+
+    // --- DOM helpers ---
+    function el(tag, attrs, children) {
+        var node = document.createElement(tag);
+        if (attrs) {
+            Object.keys(attrs).forEach(function(k) {
+                if (k === "className") node.className = attrs[k];
+                else if (k === "textContent") node.textContent = attrs[k];
+                else if (k === "style") node.style.cssText = attrs[k];
+                else if (k === "title") node.title = attrs[k];
+                else node.setAttribute(k, attrs[k]);
+            });
+        }
+        if (children) {
+            (Array.isArray(children) ? children : [children]).forEach(function(c) {
+                if (typeof c === "string") node.appendChild(document.createTextNode(c));
+                else if (c) node.appendChild(c);
+            });
+        }
+        return node;
+    }
+
+    function clear(container) {
+        while (container.firstChild) container.removeChild(container.firstChild);
+    }
+
+    // --- Auth ---
+    if (adminKey) {
+        document.getElementById("authOverlay").classList.add("hidden");
+        loadDashboard();
+    }
+
+    document.getElementById("authForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        var key = document.getElementById("keyInput").value.trim();
+        if (!key) return;
+        fetch(API + "/stats?key=" + encodeURIComponent(key))
+            .then(function(res) {
+                if (res.status === 401) throw new Error("Unauthorized");
+                return res.json();
+            })
+            .then(function() {
+                adminKey = key;
+                sessionStorage.setItem("air_admin_key", key);
+                document.getElementById("authOverlay").classList.add("hidden");
+                loadDashboard();
+            })
+            .catch(function() {
+                document.getElementById("authError").style.display = "block";
+            });
+    });
+
+    document.getElementById("refreshBtn").addEventListener("click", loadDashboard);
+
+    // --- Load ---
+    function loadDashboard() {
+        var btn = document.getElementById("refreshBtn");
+        btn.classList.add("loading");
+        btn.textContent = "Loading...";
+
+        Promise.all([
+            fetch(API + "/stats?key=" + encodeURIComponent(adminKey)).then(function(r) { return r.json(); }),
+            fetch(API + "/recent?key=" + encodeURIComponent(adminKey) + "&limit=50").then(function(r) { return r.json(); })
+        ]).then(function(results) {
+            var stats = results[0];
+            var recent = results[1];
+            renderStats(stats);
+            renderGradeChart(stats.grade_distribution);
+            renderGauge(stats.average_trust_score);
+            renderTable(recent.recent_registrations);
+            document.getElementById("agentCount").textContent = stats.total_agents + " total agents";
+            document.getElementById("lastUpdated").textContent = "Last updated: " + new Date().toLocaleString();
+            btn.classList.remove("loading");
+            btn.textContent = "Refresh";
+        }).catch(function() {
+            btn.classList.remove("loading");
+            btn.textContent = "Refresh";
+        });
+    }
+
+    // --- Stats cards ---
+    function renderStats(stats) {
+        var grid = document.getElementById("statGrid");
+        clear(grid);
+        var verifiedPct = stats.total_agents > 0 ? Math.round(stats.verified / stats.total_agents * 100) : 0;
+        var cards = [
+            { label: "Real Agents", value: String(stats.real_agents), cls: stats.real_agents > 0 ? "success" : "", sub: "Actual registrations" },
+            { label: "Demo Agents", value: String(stats.demo_agents), cls: "", sub: "Sample seed data" },
+            { label: "Verified", value: String(stats.verified), cls: "success", sub: verifiedPct + "% of " + stats.total_agents + " total" },
+            { label: "Last 7 Days", value: String(stats.registered_last_7_days), cls: stats.registered_last_7_days > 0 ? "success" : "", sub: "New registrations" }
+        ];
+        cards.forEach(function(c) {
+            grid.appendChild(el("div", { className: "stat-card" }, [
+                el("div", { className: "stat-label", textContent: c.label }),
+                el("div", { className: "stat-value " + c.cls, textContent: c.value }),
+                el("div", { className: "stat-sub", textContent: c.sub })
+            ]));
+        });
+    }
+
+    // --- Grade chart ---
+    function renderGradeChart(dist) {
+        var container = document.getElementById("gradeChart");
+        clear(container);
+        var grades = ["AAA", "AA", "A", "BBB", "BB", "B", "C"];
+        var colors = { AAA:"bar-aaa", AA:"bar-aa", A:"bar-a", BBB:"bar-bbb", BB:"bar-bb", B:"bar-b", C:"bar-c" };
+        var max = 0;
+        grades.forEach(function(g) { if ((dist[g] || 0) > max) max = dist[g]; });
+        if (max === 0) max = 1;
+
+        var chart = el("div", { className: "bar-chart" });
+        grades.forEach(function(g) {
+            var count = dist[g] || 0;
+            var pct = (count / max * 100).toFixed(0);
+            var fill = el("div", { className: "bar-fill " + colors[g], style: "width:" + pct + "%" }, [
+                count > 0 ? el("span", { textContent: String(count) }) : null
+            ]);
+            chart.appendChild(el("div", { className: "bar-row" }, [
+                el("div", { className: "bar-label", textContent: g }),
+                el("div", { className: "bar-track" }, [fill]),
+                el("div", { className: "bar-count", textContent: String(count) })
+            ]));
+        });
+        container.appendChild(chart);
+    }
+
+    // --- Gauge ---
+    function renderGauge(score) {
+        var container = document.getElementById("gaugeChart");
+        clear(container);
+        score = score || 0;
+        var pct = score / 1000;
+        var angle = -90 + (pct * 180);
+        var r = 70, cx = 90, cy = 85;
+        var startRad = -Math.PI;
+        var endRad = (angle - 90) * Math.PI / 180;
+        var x1 = cx + r * Math.cos(startRad);
+        var y1 = cy + r * Math.sin(startRad);
+        var x2 = cx + r * Math.cos(endRad);
+        var y2 = cy + r * Math.sin(endRad);
+        var largeArc = (angle + 90) > 180 ? 1 : 0;
+        var grade = score >= 950 ? "AAA" : score >= 850 ? "AA" : score >= 700 ? "A" : score >= 600 ? "BBB" : score >= 500 ? "BB" : score >= 400 ? "B" : "C";
+        var color = score >= 700 ? "#059669" : score >= 500 ? "#D97706" : "#DC2626";
+
+        var ns = "http://www.w3.org/2000/svg";
+        var svg = document.createElementNS(ns, "svg");
+        svg.setAttribute("viewBox", "0 0 180 100");
+        svg.style.cssText = "width:180px;height:100px;";
+
+        var bgArc = document.createElementNS(ns, "path");
+        bgArc.setAttribute("d", "M 20 85 A 70 70 0 0 1 160 85");
+        bgArc.setAttribute("fill", "none");
+        bgArc.setAttribute("stroke", "#E2E8F0");
+        bgArc.setAttribute("stroke-width", "12");
+        bgArc.setAttribute("stroke-linecap", "round");
+        svg.appendChild(bgArc);
+
+        var fgArc = document.createElementNS(ns, "path");
+        fgArc.setAttribute("d", "M " + x1 + " " + y1 + " A " + r + " " + r + " 0 " + largeArc + " 1 " + x2 + " " + y2);
+        fgArc.setAttribute("fill", "none");
+        fgArc.setAttribute("stroke", color);
+        fgArc.setAttribute("stroke-width", "12");
+        fgArc.setAttribute("stroke-linecap", "round");
+        svg.appendChild(fgArc);
+
+        var wrapper = el("div", { className: "gauge-wrapper" }, [
+            svg,
+            el("div", { className: "gauge-value", textContent: String(score) }),
+            el("div", { className: "gauge-label", textContent: "Average Score (" + grade + ")" })
+        ]);
+        container.appendChild(wrapper);
+    }
+
+    // --- Table ---
+    function renderTable(agents) {
+        var container = document.getElementById("agentTable");
+        clear(container);
+        if (!agents || agents.length === 0) {
+            container.appendChild(el("div", { className: "loading-state", textContent: "No agents registered yet." }));
+            return;
+        }
+
+        var table = document.createElement("table");
+        var thead = document.createElement("thead");
+        var headerRow = document.createElement("tr");
+        ["Agent", "Grade", "Score", "Creator", "Status", "Registered"].forEach(function(h) {
+            headerRow.appendChild(el("th", { textContent: h }));
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        var tbody = document.createElement("tbody");
+        agents.forEach(function(a) {
+            var row = document.createElement("tr");
+
+            // Agent cell
+            var agentCell = el("td", {}, [
+                el("div", { className: "agent-name", textContent: a.name }),
+                el("div", { className: "agent-id", textContent: a.air_id })
+            ]);
+            row.appendChild(agentCell);
+
+            // Grade cell
+            var gradeClass = "grade-" + a.trust_grade.toLowerCase();
+            row.appendChild(el("td", {}, [
+                el("span", { className: "badge-grade " + gradeClass, textContent: a.trust_grade })
+            ]));
+
+            // Score cell
+            row.appendChild(el("td", { className: "score-cell", textContent: String(a.trust_score) }));
+
+            // Creator cell
+            row.appendChild(el("td", { className: "creator-cell", textContent: a.creator_name, title: a.creator_did }));
+
+            // Status cell
+            var statusBadges = [];
+            if (a.is_demo) {
+                statusBadges.push(el("span", { className: "badge badge-demo", textContent: "Demo" }));
+                statusBadges.push(document.createTextNode(" "));
+            }
+            statusBadges.push(a.verified
+                ? el("span", { className: "badge badge-verified", textContent: "Verified" })
+                : el("span", { className: "badge badge-unverified", textContent: "Unverified" }));
+            row.appendChild(el("td", {}, statusBadges));
+
+            // Date cell
+            var date = new Date(a.registered);
+            var dateStr = date.toLocaleDateString("en-US", { month:"short", day:"numeric", year:"numeric" });
+            var timeStr = date.toLocaleTimeString("en-US", { hour:"2-digit", minute:"2-digit" });
+            row.appendChild(el("td", { className: "date-cell" }, [
+                document.createTextNode(dateStr),
+                document.createElement("br"),
+                document.createTextNode(timeStr)
+            ]));
+
+            tbody.appendChild(row);
+        });
+
+        table.appendChild(tbody);
+        container.appendChild(table);
+    }
+})();
+</script>
+</body>
+</html>
