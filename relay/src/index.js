@@ -111,9 +111,15 @@ async function handleInbox(request, env, recipient_did) {
       `Envelope exceeds ${MAX_BODY_BYTES} bytes`, { max_bytes: MAX_BODY_BYTES });
   }
 
-  // Parse JSON to extract envelope_id + from (sender_did) for our metadata.
-  // We do NOT validate the envelope schema — that's the recipient's job.
-  // We do NOT re-serialize — we store the original bytes in BLOB.
+  // Parse JSON to extract `id` + `from` for our metadata. The spec
+  // (agentidentityregistry.org/specs/a2a/draft-1 §4) names the envelope's
+  // own identifier `id`, so we read that. The relay internally calls the
+  // same value `envelope_id` (DB column + API field name) because `id` is
+  // ambiguous in API contexts.
+  //
+  // We do NOT validate the rest of the envelope schema — that's the
+  // recipient's job (Principle 3). We do NOT re-serialize — we store the
+  // original bytes in BLOB to preserve the wax seal.
   let envelope;
   try {
     envelope = JSON.parse(new TextDecoder().decode(bodyBytes));
@@ -121,11 +127,11 @@ async function handleInbox(request, env, recipient_did) {
     return error(400, "invalid_json", "Envelope body is not valid JSON",
       { detail: String(e.message ?? e) });
   }
-  const envelope_id = envelope?.envelope_id;
+  const envelope_id = envelope?.id;
   const sender_did  = envelope?.from;
   if (!envelope_id || typeof envelope_id !== "string") {
-    return error(400, "missing_envelope_id",
-      "Envelope must include a string `envelope_id` field");
+    return error(400, "missing_id",
+      "Envelope must include a string `id` field (the envelope's UUID per spec §4)");
   }
   if (!sender_did || typeof sender_did !== "string") {
     return error(400, "missing_from",
