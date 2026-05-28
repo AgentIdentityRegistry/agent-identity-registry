@@ -1,0 +1,37 @@
+name: A2A Conformance — Python
+
+on:
+  pull_request:
+    paths:
+      - "specs/a2a/draft-1/**"
+      - "sdk/python/tests/conformance/**"
+      - ".github/workflows/conformance.yml"
+  push:
+    branches:
+      - "feat/a2a-spec-draft-1"
+      - "main"
+
+jobs:
+  python-conformance:
+    name: Python cross-language conformance vectors
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout air-site
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: sdk/python/tests/conformance/requirements.txt
+
+      - name: Install conformance dependencies
+        run: pip install -r sdk/python/tests/conformance/requirements.txt
+
+      - name: Run Python conformance tests
+        working-directory: sdk/python/tests/conformance
+        env:
+          VECTORS_PATH: ${{ github.workspace }}/specs/a2a/draft-1/test-vectors.json
+        run: pytest test_jcs_vectors.py -v --tb=short
