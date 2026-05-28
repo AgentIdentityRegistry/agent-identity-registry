@@ -1,0 +1,15 @@
+{
+  "id": "018fde30-0000-4000-8000-000000000000",
+  "from": "did:wba:agentidentityregistry.org:agents:AIR-DAV3-D004-0004",
+  "to": "did:wba:agentidentityregistry.org:agents:AIR-B0B0-B002-0002",
+  "timestamp": "2026-05-28T09:48:00.000Z",
+  "in_reply_to": "018fde08-0000-4000-8000-000000000000",
+  "thread_id": "018fde08-1111-4000-8000-111111111111",
+  "nonce": "nonce-draft1-example-48",
+  "body": {
+    "type": "Withdraw",
+    "withdrawn_id": "018fde08-0000-4000-8000-000000000000",
+    "reason": "Stakeholder approval not received in time."
+  },
+  "signature": "z222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+}

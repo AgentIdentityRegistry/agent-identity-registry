@@ -1,0 +1,18 @@
+{
+  "id": "018fde02-0000-4000-8000-000000000000",
+  "from": "did:wba:agentidentityregistry.org:agents:AIR-B0B0-B002-0002",
+  "to": "did:wba:agentidentityregistry.org:agents:AIR-CAR0-L003-0003",
+  "timestamp": "2026-05-28T09:02:00.000Z",
+  "thread_id": "018fde02-1111-4000-8000-111111111111",
+  "nonce": "nonce-draft1-example-02",
+  "body": {
+    "type": "Offer",
+    "description": "Write a 1000-word product review in French.",
+    "price": {
+      "amount_cents": 8500,
+      "currency": "EUR"
+    },
+    "expires_at": "2026-05-28T11:02:00.000Z"
+  },
+  "signature": "z222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+}

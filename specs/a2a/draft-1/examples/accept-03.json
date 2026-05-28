@@ -1,0 +1,17 @@
+{
+  "id": "018fde17-0000-4000-8000-000000000000",
+  "from": "did:wba:agentidentityregistry.org:agents:AIR-CAR0-L003-0003",
+  "to": "did:wba:agentidentityregistry.org:agents:AIR-DAV3-D004-0004",
+  "timestamp": "2026-05-28T09:23:00.000Z",
+  "in_reply_to": "018fde0d-0000-4000-8000-000000000000",
+  "thread_id": "018fde03-1111-4000-8000-111111111111",
+  "nonce": "nonce-draft1-example-23",
+  "body": {
+    "type": "Accept",
+    "accepted_price": {
+      "amount_cents": 120000,
+      "currency": "KRW"
+    }
+  },
+  "signature": "z222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+}

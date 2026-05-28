@@ -1,0 +1,18 @@
+{
+  "id": "018fde06-0000-4000-8000-000000000000",
+  "from": "did:wba:agentidentityregistry.org:agents:AIR-B0B0-B002-0002",
+  "to": "did:wba:agentidentityregistry.org:agents:AIR-DAV3-D004-0004",
+  "timestamp": "2026-05-28T09:06:00.000Z",
+  "thread_id": "018fde06-1111-4000-8000-111111111111",
+  "nonce": "nonce-draft1-example-06",
+  "body": {
+    "type": "Offer",
+    "description": "Develop a 10-section technical specification document.",
+    "price": {
+      "amount_cents": 1000000,
+      "currency": "USD"
+    },
+    "expires_at": "2026-05-28T11:06:00.000Z"
+  },
+  "signature": "z222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+}

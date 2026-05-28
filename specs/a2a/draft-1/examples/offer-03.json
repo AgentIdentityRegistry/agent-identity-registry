@@ -1,0 +1,18 @@
+{
+  "id": "018fde03-0000-4000-8000-000000000000",
+  "from": "did:wba:agentidentityregistry.org:agents:AIR-CAR0-L003-0003",
+  "to": "did:wba:agentidentityregistry.org:agents:AIR-DAV3-D004-0004",
+  "timestamp": "2026-05-28T09:03:00.000Z",
+  "thread_id": "018fde03-1111-4000-8000-111111111111",
+  "nonce": "nonce-draft1-example-03",
+  "body": {
+    "type": "Offer",
+    "description": "번역 서비스: 영어에서 한국어로 2000단어.",
+    "price": {
+      "amount_cents": 150000,
+      "currency": "KRW"
+    },
+    "expires_at": "2026-05-28T11:03:00.000Z"
+  },
+  "signature": "z222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+}

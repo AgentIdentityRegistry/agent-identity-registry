@@ -1,0 +1,19 @@
+{
+  "id": "018fde0d-0000-4000-8000-000000000000",
+  "from": "did:wba:agentidentityregistry.org:agents:AIR-DAV3-D004-0004",
+  "to": "did:wba:agentidentityregistry.org:agents:AIR-CAR0-L003-0003",
+  "timestamp": "2026-05-28T09:13:00.000Z",
+  "in_reply_to": "018fde03-0000-4000-8000-000000000000",
+  "thread_id": "018fde03-1111-4000-8000-111111111111",
+  "nonce": "nonce-draft1-example-13",
+  "body": {
+    "type": "Counter",
+    "description": "영어→한국어 번역, 교정 포함.",
+    "price": {
+      "amount_cents": 120000,
+      "currency": "KRW"
+    },
+    "expires_at": "2026-05-28T11:13:00.000Z"
+  },
+  "signature": "z222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+}

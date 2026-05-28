@@ -1,0 +1,19 @@
+{
+  "id": "018fde14-0000-4000-8000-000000000000",
+  "from": "did:wba:agentidentityregistry.org:agents:AIR-CAR0-L003-0003",
+  "to": "did:wba:agentidentityregistry.org:agents:AIR-B0B0-B002-0002",
+  "timestamp": "2026-05-28T09:20:00.000Z",
+  "in_reply_to": "018fde0a-0000-4000-8000-000000000000",
+  "thread_id": "018fde0a-1111-4000-8000-111111111111",
+  "nonce": "nonce-draft1-example-20",
+  "body": {
+    "type": "Counter",
+    "description": "Grammar check plus style recommendations for 100-word paragraph.",
+    "price": {
+      "amount_cents": 150,
+      "currency": "USD"
+    },
+    "expires_at": "2026-05-28T11:20:00.000Z"
+  },
+  "signature": "z222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+}

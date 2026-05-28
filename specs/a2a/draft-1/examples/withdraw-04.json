@@ -1,0 +1,15 @@
+{
+  "id": "018fde2c-0000-4000-8000-000000000000",
+  "from": "did:wba:agentidentityregistry.org:agents:AIR-DAV3-D004-0004",
+  "to": "did:wba:agentidentityregistry.org:agents:AIR-ALIC-E001-0001",
+  "timestamp": "2026-05-28T09:44:00.000Z",
+  "in_reply_to": "018fde04-0000-4000-8000-000000000000",
+  "thread_id": "018fde04-1111-4000-8000-111111111111",
+  "nonce": "nonce-draft1-example-44",
+  "body": {
+    "type": "Withdraw",
+    "withdrawn_id": "018fde04-0000-4000-8000-000000000000",
+    "reason": "価格を改定するため、提案を撤回します。"
+  },
+  "signature": "z222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+}
