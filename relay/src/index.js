@@ -58,12 +58,26 @@ const error = (status, code, message, extra = {}) =>
 // DIDs contain colons (did:wba:agentidentityregistry.org:agents:AIR-X), so we
 // can't just split on "/" naively — the DID may itself contain slashes in
 // did:web variants. We take everything after the first path segment.
+//
+// CRITICAL: we decode the result via decodeURIComponent because different
+// HTTP clients encode differently:
+//   * `curl https://.../inbox/did:wba:...`        sends raw colons
+//   * JS `encodeURIComponent(did)`                sends %3A for colons
+//   * Rust reqwest                                sends raw colons by default
+// The DB column stores the decoded canonical form so all clients see the
+// same recipient regardless of their encoding choices. Without this, a
+// recipient inserted via one encoding can't be pulled via another.
 function extractDid(pathname, prefix) {
   if (!pathname.startsWith(prefix)) return null;
   const rest = pathname.slice(prefix.length);
   if (!rest || rest === "/") return null;
-  // strip a trailing slash if present
-  return rest.endsWith("/") ? rest.slice(0, -1) : rest;
+  const trimmed = rest.endsWith("/") ? rest.slice(0, -1) : rest;
+  try {
+    return decodeURIComponent(trimmed);
+  } catch {
+    // Malformed percent-encoding — return null so the route 404s.
+    return null;
+  }
 }
 
 // -----------------------------------------------------------------------------
