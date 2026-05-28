@@ -845,6 +845,19 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DidService"
+          description: |
+            Service endpoints advertised by the agent. The first entry is
+            always the AIR-issued `AIRTrustScore` endpoint (added by the
+            registry, not user-controlled). Additional entries — like an
+            `A2AInbox` for cross-internet agent messaging — come from the
+            agent's `service_endpoints` field set via PUT.
+          examples:
+            - - id: did:wba:agentidentityregistry.org:agents:AIR-WBA1-DEMO-AGT0#trust-score
+                type: AIRTrustScore
+                serviceEndpoint: https://agentidentityregistry.org/api/v1/agents/AIR-WBA1-DEMO-AGT0/trust-score
+              - id: did:wba:agentidentityregistry.org:agents:AIR-WBA1-DEMO-AGT0#a2a
+                type: A2AInbox
+                serviceEndpoint: https://relay.agentidentityregistry.org/inbox/AIR-WBA1-DEMO-AGT0
 
     # ---------- NAME CHECK ----------
 
@@ -1016,6 +1029,19 @@ components:
           type: string
           format: uri
           maxLength: 500
+        # Phase 3 Stage 3.0.1a — append-on-update endpoints for the DID document's
+        # service[] array. Pass [] to clear. The hardcoded AIRTrustScore entry
+        # remains in the DID document regardless of this field.
+        service_endpoints:
+          type: array
+          description: |
+            Per-agent service endpoints appended to the DID document's
+            `service[]` array (W3C did-core). The built-in `AIRTrustScore`
+            entry is always present and is NOT controlled by this field —
+            it's added on top by AIR at read time.
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/DidService"
 
     UpdateResult:
       type: object

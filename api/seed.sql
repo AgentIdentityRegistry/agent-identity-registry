@@ -41,3 +41,10 @@ INSERT INTO agents (air_id, name, description, creator_did, creator_name, creato
 INSERT INTO trust_scores (air_id, total_score, grade, provenance, behavioral, transparency, security, peer_attestations, calculated_at) VALUES
 ('AIR-WBA1-DEMO-AGT0', 712, 'A', 750, 720, 730, 650, 700, '2026-05-24T12:00:00Z'),
 ('AIR-WBA2-DEMO-AGT0', 645, 'BBB', 680, 660, 620, 580, 660, '2026-05-24T12:00:00Z');
+
+-- Phase 3 Stage 3.0.1a — sample service_endpoints for the WBA1 demo agent.
+-- Exercises the A2A discovery path: getDidDocument now appends this A2AInbox
+-- entry on top of the hardcoded AIRTrustScore entry. Re-runnable; idempotent.
+UPDATE agents
+SET service_endpoints = '[{"id":"#a2a","type":"A2AInbox","serviceEndpoint":"https://relay.agentidentityregistry.org/inbox/AIR-WBA1-DEMO-AGT0"}]'
+WHERE air_id = 'AIR-WBA1-DEMO-AGT0';

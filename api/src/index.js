@@ -606,7 +606,7 @@ async function getAgent(airId, db) {
 // Public, no auth, cacheable for 5 minutes at the edge.
 async function getDidDocument(airId, db) {
   const agent = await db.prepare(
-    "SELECT air_id, creator_did, public_key, name FROM agents WHERE air_id = ? AND status = 'active'"
+    "SELECT air_id, creator_did, public_key, name, service_endpoints FROM agents WHERE air_id = ? AND status = 'active'"
   ).bind(airId).first();
 
   if (!agent) {
@@ -627,6 +627,18 @@ async function getDidDocument(airId, db) {
   // alsoKnownAs only included if the agent's creator_did differs from the AIR-minted DID.
   const alsoKnownAs = agent.creator_did && agent.creator_did !== airDid ? [agent.creator_did] : undefined;
 
+  // Hardcoded AIRTrustScore entry is preserved — every agent always advertises
+  // its trust-score endpoint. Per-agent service_endpoints (Phase 3 Stage 3.0.1a)
+  // are appended on top via parseServiceEndpoints below.
+  const service = [
+    {
+      id: `${airDid}#trust-score`,
+      type: "AIRTrustScore",
+      serviceEndpoint: trustScoreUrl,
+    },
+    ...parseServiceEndpoints(agent.service_endpoints, airDid),
+  ];
+
   const doc = {
     "@context": [
       "https://www.w3.org/ns/did/v1",
@@ -644,17 +656,82 @@ async function getDidDocument(airId, db) {
     ],
     authentication: [`${airDid}#key-1`],
     assertionMethod: [`${airDid}#key-1`],
-    service: [
-      {
-        id: `${airDid}#trust-score`,
-        type: "AIRTrustScore",
-        serviceEndpoint: trustScoreUrl,
-      },
-    ],
+    service,
   };
 
   // Cache at the edge for 5 minutes (DID docs are slow-changing).
   return json(doc, 200, { "Cache-Control": "public, max-age=300" });
+}
+
+// Parse the JSON string stored in agents.service_endpoints into validated
+// W3C did-core service entries. Returns an empty array (never throws) when:
+//   • the column is NULL / empty
+//   • the JSON is malformed
+//   • the top-level value isn't an array
+// Each entry must have a string `type` and a string `serviceEndpoint`; entries
+// failing that check are skipped silently rather than poisoning the whole list.
+// `id` is auto-generated as `${airDid}#${type}` when the stored entry omits it,
+// so callers get spec-compliant fragment IDs even from minimal PUT payloads.
+function parseServiceEndpoints(raw, airDid) {
+  if (!raw) return [];
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  const out = [];
+  for (const entry of parsed) {
+    if (!entry || typeof entry !== "object") continue;
+    if (typeof entry.type !== "string" || entry.type.length === 0) continue;
+    if (typeof entry.serviceEndpoint !== "string" || entry.serviceEndpoint.length === 0) continue;
+    const id = typeof entry.id === "string" && entry.id.length > 0
+      ? entry.id
+      : `${airDid}#${entry.type}`;
+    out.push({ id, type: entry.type, serviceEndpoint: entry.serviceEndpoint });
+  }
+  return out;
+}
+
+// Validate a service_endpoints PUT payload. Returns { valid: true, normalized }
+// on success (normalized is the array of validated entries, safe to JSON.stringify)
+// or { valid: false, error } on the first failure. Strict: array of objects each
+// with string `type` and string `serviceEndpoint` (URL form). Optional string `id`.
+function validateServiceEndpoints(value) {
+  if (!Array.isArray(value)) {
+    return { valid: false, error: "service_endpoints must be an array" };
+  }
+  if (value.length > 20) {
+    return { valid: false, error: "service_endpoints exceeds max length of 20 entries" };
+  }
+  const normalized = [];
+  for (let i = 0; i < value.length; i++) {
+    const entry = value[i];
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      return { valid: false, error: `service_endpoints[${i}] must be an object` };
+    }
+    if (typeof entry.type !== "string" || entry.type.trim().length === 0) {
+      return { valid: false, error: `service_endpoints[${i}].type must be a non-empty string` };
+    }
+    if (typeof entry.serviceEndpoint !== "string" || entry.serviceEndpoint.trim().length === 0) {
+      return { valid: false, error: `service_endpoints[${i}].serviceEndpoint must be a non-empty string` };
+    }
+    // URL form check — accept any scheme so callers can ship did:, https:, mailto:,
+    // urn: etc. (W3C DID Core treats serviceEndpoint as a generic URI).
+    try {
+      new URL(entry.serviceEndpoint);
+    } catch {
+      return { valid: false, error: `service_endpoints[${i}].serviceEndpoint is not a valid URL` };
+    }
+    if (entry.id !== undefined && (typeof entry.id !== "string" || entry.id.length === 0)) {
+      return { valid: false, error: `service_endpoints[${i}].id must be a non-empty string when present` };
+    }
+    const out = { type: entry.type.trim().slice(0, 100), serviceEndpoint: entry.serviceEndpoint.trim().slice(0, 500) };
+    if (entry.id) out.id = entry.id.trim().slice(0, 200);
+    normalized.push(out);
+  }
+  return { valid: true, normalized };
 }
 
 async function getTrustScore(airId, db) {
@@ -937,8 +1014,20 @@ async function updateAgent(request, airId, db) {
     updates.push("transparency_docs_url = ?");
     binds.push(String(body.documentation_url).trim().slice(0, 500));
   }
+  // service_endpoints — W3C did-core service[] entries appended to the DID document.
+  // Phase 3 Stage 3.0.1a. Strict validation: array of objects each with string `type`
+  // and string `serviceEndpoint` (URL form). Optional string `id`. Empty array clears.
+  if (body.service_endpoints !== undefined) {
+    const result = validateServiceEndpoints(body.service_endpoints);
+    if (!result.valid) {
+      return json({ error: "Invalid service_endpoints: " + result.error }, 400);
+    }
+    updates.push("service_endpoints = ?");
+    binds.push(result.normalized.length === 0 ? null : JSON.stringify(result.normalized));
+  }
+
   if (updates.length === 0) {
-    return json({ error: "No valid fields to update. Updatable fields: description, capabilities, security_certifications, open_source, code_repository, documentation_url" }, 400);
+    return json({ error: "No valid fields to update. Updatable fields: description, capabilities, security_certifications, open_source, code_repository, documentation_url, service_endpoints" }, 400);
   }
 
   const now = new Date().toISOString();

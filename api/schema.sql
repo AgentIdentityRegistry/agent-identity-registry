@@ -29,7 +29,13 @@ CREATE TABLE IF NOT EXISTS agents (
   -- did:wba resolution status — see migrations/0001_add_did_wba_status.sql
   -- NULL when creator isn't a did:wba; 1/0 when it is.
   did_wba_resolved INTEGER,
-  did_wba_last_checked_at TEXT
+  did_wba_last_checked_at TEXT,
+  -- Per-agent service endpoints for the DID document's service[] array.
+  -- JSON array of {type, serviceEndpoint, id?} objects. NULL when the agent
+  -- has not declared any; getDidDocument still returns the hardcoded
+  -- AIRTrustScore entry on top of whatever this column adds.
+  -- See migrations/0003_add_service_endpoints.sql (Phase 3 Stage 3.0.1a).
+  service_endpoints TEXT
 );
 
 CREATE TABLE IF NOT EXISTS trust_scores (
