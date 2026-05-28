@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AIR ID Lookup — Look up any AI agent's identity, trust score, and verification status in the Agent Identity Registry.">
+
+    <!-- Open Graph + Twitter Card -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Agent Identity Registry">
+    <meta property="og:title" content="Agent ID Lookup — AIR">
+    <meta property="og:description" content="Look up any AI agent's identity, trust score, and verification status. Public, free, no account required.">
+    <meta property="og:url" content="https://agentidentityregistry.org/lookup/">
+    <meta property="og:image" content="https://agentidentityregistry.org/assets/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="AIR — The global identity standard for AI agents">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Agent ID Lookup — AIR">
+    <meta name="twitter:description" content="Look up any AI agent's identity, trust score, and verification status. Public, free, no account required.">
+    <meta name="twitter:image" content="https://agentidentityregistry.org/assets/og-image.png">
+    <link rel="canonical" href="https://agentidentityregistry.org/lookup/">
+
+    <title>AIR ID Lookup — Agent Identity Registry</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Work+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1E3A8A;
+            --primary-dark: #172554;
+            --primary-light: #2563EB;
+            --accent: #B45309;
+            --accent-light: #D97706;
+            --accent-gold: #F59E0B;
+            --text: #0F172A;
+            --text-secondary: #475569;
+            --text-muted: #64748B;
+            --bg: #FFFFFF;
+            --bg-warm: #F8FAFC;
+            --bg-tint: #F0F4FF;
+            --border: #CBD5E1;
+            --border-light: #E2E8F0;
+            --success: #059669;
+            --card: #FFFFFF;
+            --ring: #1E3A8A;
+            --destructive: #DC2626;
+            --radius: 0.5rem;
+
+            --grade-aaa-bg: #DCFCE7;
+            --grade-aaa-text: #166534;
+            --grade-aa-bg: #D1FAE5;
+            --grade-aa-text: #065F46;
+            --grade-a-bg: #DBEAFE;
+            --grade-a-text: #1E40AF;
+            --grade-bbb-bg: #FEF9C3;
+            --grade-bbb-text: #854D0E;
+            --grade-bb-bg: #FFEDD5;
+            --grade-bb-text: #9A3412;
+            --grade-b-bg: #FEE2E2;
+            --grade-b-text: #991B1B;
+            --grade-c-bg: #FECACA;
+            --grade-c-text: #7F1D1D;
+        }
+
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        html { scroll-behavior:smooth; font-size:16px; }
+        body {
+            font-family:'Work Sans', system-ui, -apple-system, sans-serif;
+            line-height:1.6; color:var(--text); background:var(--bg-warm);
+            -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+            min-height:100vh; display:flex; flex-direction:column;
+        }
+        h1,h2,h3,h4,h5 { font-family:'Outfit', sans-serif; font-weight:700; line-height:1.15; }
+
+        /* === NAV === */
+        .nav { position:sticky; top:0; z-index:50; background:rgba(255,255,255,0.95); backdrop-filter:blur(12px); border-bottom:1px solid var(--border-light); }
+        .nav-inner { max-width:1200px; margin:0 auto; padding:1rem 2rem; display:flex; align-items:center; justify-content:space-between; }
+        .nav-brand { display:flex; align-items:center; gap:0.75rem; text-decoration:none; color:var(--primary); }
+        .nav-brand-mark { font-family:'Outfit'; font-weight:800; font-size:1.6rem; letter-spacing:-1px; }
+        .nav-brand-label { font-size:0.65rem; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:var(--text-muted); }
+        .nav-links { display:flex; gap:2rem; align-items:center; }
+        .nav-links a { text-decoration:none; color:var(--text-secondary); font-size:0.9rem; font-weight:500; transition:color 0.2s; }
+        .nav-links a:hover { color:var(--primary); }
+        .nav-cta { background:var(--primary); color:#FFFFFF !important; padding:0.55rem 1.25rem; border-radius:var(--radius); font-weight:600; font-size:0.85rem; text-decoration:none; transition:background 0.2s, transform 0.15s; }
+        .nav-cta:hover { background:var(--primary-light); transform:translateY(-1px); }
+        @media(max-width:768px){ .nav-links{ display:none; } }
+
+        /* === MAIN LAYOUT === */
+        .container { max-width:1200px; margin:0 auto; padding:0 2rem; width:100%; }
+        main { flex:1; }
+
+        /* === HERO HEADER === */
+        .lookup-hero {
+            background:linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 50%, var(--primary-light) 100%);
+            color:#fff; padding:3.5rem 0 4rem; text-align:center; position:relative; overflow:hidden;
+        }
+        .lookup-hero::before {
+            content:''; position:absolute; top:-100px; right:-100px; width:400px; height:400px;
+            background:radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%); pointer-events:none;
+        }
+        .lookup-hero::after {
+            content:''; position:absolute; bottom:-150px; left:-100px; width:500px; height:500px;
+            background:radial-gradient(circle, rgba(245,158,11,0.08) 0%, transparent 70%); pointer-events:none;
+        }
+        .lookup-hero h1 { font-size:clamp(1.8rem,4vw,2.8rem); font-weight:800; letter-spacing:-1px; margin-bottom:0.5rem; }
+        .lookup-hero p { font-size:1.1rem; color:rgba(255,255,255,0.8); max-width:520px; margin:0 auto 2rem; }
+        .lookup-tagline { font-size:0.8rem; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:var(--accent-gold); margin-bottom:1rem; }
+
+        /* === SEARCH === */
+        .search-wrapper { max-width:600px; margin:0 auto; position:relative; }
+        .search-box {
+            display:flex; gap:0; background:#fff; border-radius:0.75rem; overflow:hidden;
+            box-shadow:0 8px 32px rgba(0,0,0,0.2); transition:box-shadow 0.3s;
+        }
+        .search-box:focus-within { box-shadow:0 8px 32px rgba(0,0,0,0.3), 0 0 0 3px rgba(37,99,235,0.3); }
+        .search-input {
+            flex:1; border:none; padding:1rem 1.25rem; font-family:'Work Sans', sans-serif; font-size:1rem;
+            color:var(--text); outline:none; background:transparent; min-width:0;
+        }
+        .search-input::placeholder { color:var(--text-muted); }
+        .search-btn {
+            background:var(--primary); color:#fff; border:none; padding:1rem 1.75rem;
+            font-family:'Outfit', sans-serif; font-weight:600; font-size:0.95rem; cursor:pointer;
+            transition:background 0.2s; white-space:nowrap;
+        }
+        .search-btn:hover { background:var(--primary-light); }
+
+        /* === EXAMPLE IDS === */
+        .examples-section { margin-top:1.5rem; }
+        .examples-label { font-size:0.8rem; color:rgba(255,255,255,0.55); margin-bottom:0.6rem; }
+        .examples-grid { display:flex; flex-wrap:wrap; justify-content:center; gap:0.5rem; }
+        .example-chip {
+            background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2);
+            color:rgba(255,255,255,0.9); padding:0.35rem 0.85rem; border-radius:2rem;
+            font-family:'Courier New', monospace; font-size:0.8rem; cursor:pointer;
+            transition:all 0.2s; text-decoration:none;
+        }
+        .example-chip:hover { background:rgba(255,255,255,0.2); border-color:rgba(255,255,255,0.4); transform:translateY(-1px); }
+        .example-chip-name {
+            font-family:'Work Sans', sans-serif; font-size:0.7rem; color:rgba(255,255,255,0.5); margin-left:0.4rem;
+        }
+
+        /* === RESULTS AREA === */
+        .results-area { padding:3rem 0 4rem; min-height:200px; }
+        .result-container {
+            max-width:740px; margin:0 auto;
+            opacity:0; transform:translateY(24px);
+            transition:opacity 0.5s ease, transform 0.5s ease;
+            pointer-events:none;
+        }
+        .result-container.visible { opacity:1; transform:translateY(0); pointer-events:auto; }
+
+        /* === PASSPORT CARD === */
+        .passport {
+            background:var(--card); border-radius:1rem; overflow:hidden;
+            box-shadow:0 4px 24px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04);
+            border:1px solid var(--border-light);
+        }
+        .passport-header {
+            background:var(--primary-dark); color:#fff; padding:1.5rem 2rem;
+            display:flex; align-items:center; justify-content:space-between; gap:1rem;
+        }
+        .passport-header-left { display:flex; align-items:center; gap:1rem; min-width:0; }
+        .passport-logo { font-family:'Outfit'; font-weight:800; font-size:1.3rem; letter-spacing:-0.5px; flex-shrink:0; }
+        .passport-title { font-family:'Outfit'; font-weight:600; font-size:0.75rem; letter-spacing:2px; text-transform:uppercase; color:rgba(255,255,255,0.6); }
+        .passport-verified {
+            display:inline-flex; align-items:center; gap:0.4rem;
+            background:rgba(5,150,105,0.2); border:1px solid rgba(5,150,105,0.4);
+            color:#6EE7B7; padding:0.3rem 0.8rem; border-radius:2rem;
+            font-size:0.75rem; font-weight:600; letter-spacing:0.5px; flex-shrink:0;
+        }
+        .passport-unverified {
+            display:inline-flex; align-items:center; gap:0.4rem;
+            background:rgba(220,38,38,0.15); border:1px solid rgba(220,38,38,0.3);
+            color:#FCA5A5; padding:0.3rem 0.8rem; border-radius:2rem;
+            font-size:0.75rem; font-weight:600; letter-spacing:0.5px; flex-shrink:0;
+        }
+        .passport-verified svg, .passport-unverified svg { width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2; }
+
+        .passport-body { padding:2rem; }
+        .passport-identity { display:flex; align-items:flex-start; justify-content:space-between; gap:1.5rem; margin-bottom:2rem; flex-wrap:wrap; }
+        .passport-agent-info { min-width:0; flex:1; }
+        .passport-agent-name { font-family:'Outfit'; font-size:1.5rem; font-weight:700; color:var(--primary-dark); margin-bottom:0.25rem; word-break:break-word; }
+        .passport-agent-id { font-family:'Courier New', monospace; font-size:0.85rem; color:var(--text-muted); margin-bottom:0.5rem; }
+        .passport-agent-desc { font-size:0.9rem; color:var(--text-secondary); line-height:1.6; }
+
+        .passport-score-badge {
+            flex-shrink:0; text-align:center; padding:1.25rem 1.5rem; border-radius:0.75rem; min-width:130px;
+        }
+        .passport-score-number { font-family:'Outfit'; font-size:2.8rem; font-weight:800; line-height:1; margin-bottom:0.15rem; }
+        .passport-score-grade { font-family:'Outfit'; font-size:1.3rem; font-weight:700; margin-bottom:0.1rem; }
+        .passport-score-label { font-size:0.7rem; font-weight:500; opacity:0.7; }
+
+        /* Score bar */
+        .passport-score-bar { margin-bottom:2rem; }
+        .score-bar-track { width:100%; height:8px; background:var(--border-light); border-radius:4px; overflow:hidden; }
+        .score-bar-fill { height:100%; border-radius:4px; transition:width 1s ease-out; }
+        .score-bar-labels { display:flex; justify-content:space-between; margin-top:0.35rem; }
+        .score-bar-labels span { font-size:0.7rem; color:var(--text-muted); }
+
+        /* Component breakdown */
+        .passport-components { margin-bottom:2rem; }
+        .passport-components h4 {
+            font-size:0.75rem; font-weight:600; letter-spacing:2px; text-transform:uppercase;
+            color:var(--text-muted); margin-bottom:1rem;
+        }
+        .component-list { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; }
+        @media(max-width:500px){ .component-list { grid-template-columns:1fr; } }
+        .comp-item {
+            background:var(--bg-warm); padding:0.85rem 1rem; border-radius:var(--radius);
+            display:flex; align-items:center; justify-content:space-between;
+        }
+        .comp-label { font-size:0.8rem; color:var(--text-secondary); }
+        .comp-weight { font-size:0.65rem; color:var(--text-muted); margin-left:0.25rem; }
+        .comp-score { font-family:'Outfit'; font-size:1.15rem; font-weight:700; color:var(--primary); }
+        .comp-bar-track { width:100%; height:4px; background:var(--border-light); border-radius:2px; margin-top:0.4rem; overflow:hidden; }
+        .comp-bar-fill { height:100%; border-radius:2px; transition:width 0.8s ease-out; }
+
+        /* Meta info */
+        .passport-meta {
+            display:grid; grid-template-columns:1fr 1fr; gap:0.75rem 1.5rem;
+            padding-top:1.5rem; border-top:1px solid var(--border-light);
+        }
+        @media(max-width:500px){ .passport-meta { grid-template-columns:1fr; } }
+        .meta-label { font-size:0.7rem; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.15rem; }
+        .meta-value { font-size:0.85rem; color:var(--text); word-break:break-all; }
+        .meta-value.mono { font-family:'Courier New', monospace; font-size:0.78rem; }
+
+        /* Capabilities */
+        .passport-capabilities { margin-top:1.25rem; padding-top:1.25rem; border-top:1px solid var(--border-light); }
+        .passport-capabilities h4 {
+            font-size:0.7rem; font-weight:600; letter-spacing:1px; text-transform:uppercase;
+            color:var(--text-muted); margin-bottom:0.6rem;
+        }
+        .cap-tags { display:flex; flex-wrap:wrap; gap:0.4rem; }
+        .cap-tag {
+            background:var(--bg-tint); color:var(--primary); padding:0.3rem 0.7rem;
+            border-radius:2rem; font-size:0.78rem; font-weight:500;
+        }
+
+        /* === ERROR STATE === */
+        .error-card {
+            max-width:500px; margin:0 auto; text-align:center;
+            background:var(--card); border-radius:1rem; padding:3rem 2rem;
+            box-shadow:0 4px 24px rgba(0,0,0,0.06); border:1px solid var(--border-light);
+        }
+        .error-icon { font-size:3rem; margin-bottom:1rem; opacity:0.4; }
+        .error-card h3 { font-family:'Outfit'; color:var(--primary-dark); margin-bottom:0.5rem; }
+        .error-card p { color:var(--text-secondary); font-size:0.95rem; }
+        .error-format { margin-top:1rem; font-family:'Courier New', monospace; font-size:0.85rem; color:var(--text-muted); background:var(--bg-warm); padding:0.5rem 1rem; border-radius:var(--radius); display:inline-block; }
+
+        /* === INITIAL STATE === */
+        .initial-state { max-width:500px; margin:0 auto; text-align:center; padding:2rem; }
+        .initial-state p { color:var(--text-muted); font-size:0.95rem; }
+
+        /* === HOW SCORES WORK === */
+        .info-section { padding:0 0 4rem; }
+        .accordion {
+            max-width:740px; margin:0 auto; background:var(--card); border-radius:1rem;
+            border:1px solid var(--border-light); overflow:hidden;
+            box-shadow:0 2px 12px rgba(0,0,0,0.04);
+        }
+        .accordion-toggle {
+            width:100%; background:none; border:none; padding:1.25rem 2rem;
+            display:flex; align-items:center; justify-content:space-between;
+            cursor:pointer; font-family:'Outfit', sans-serif; font-weight:600;
+            font-size:1.05rem; color:var(--primary-dark); transition:background 0.2s;
+        }
+        .accordion-toggle:hover { background:var(--bg-tint); }
+        .accordion-arrow { width:20px; height:20px; transition:transform 0.3s; }
+        .accordion-arrow.open { transform:rotate(180deg); }
+        .accordion-content { max-height:0; overflow:hidden; transition:max-height 0.4s ease; }
+        .accordion-content.open { max-height:2000px; }
+        .accordion-inner { padding:0 2rem 1.5rem; }
+        .accordion-inner p { font-size:0.9rem; color:var(--text-secondary); line-height:1.7; margin-bottom:1rem; }
+        .method-list { list-style:none; }
+        .method-list li { display:flex; gap:1rem; padding:0.75rem 0; border-bottom:1px solid var(--border-light); }
+        .method-list li:last-child { border-bottom:none; }
+        .method-weight-label { font-family:'Outfit'; font-weight:800; font-size:1rem; color:var(--primary); min-width:40px; }
+        .method-info { flex:1; }
+        .method-name { font-weight:600; font-size:0.9rem; color:var(--primary-dark); }
+        .method-desc { font-size:0.8rem; color:var(--text-muted); }
+        .grade-table { width:100%; border-collapse:collapse; margin-top:0.75rem; font-size:0.85rem; }
+        .grade-table th { text-align:left; padding:0.5rem; color:var(--text-muted); font-weight:600; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase; border-bottom:1px solid var(--border-light); }
+        .grade-table td { padding:0.5rem; border-bottom:1px solid var(--border-light); color:var(--text-secondary); }
+        .grade-table tr:last-child td { border-bottom:none; }
+        .grade-badge-sm { font-family:'Outfit'; font-weight:700; font-size:0.8rem; padding:0.15rem 0.5rem; border-radius:4px; display:inline-block; }
+
+        /* === DEMO NOTICE === */
+        .demo-notice {
+            max-width:740px; margin:0 auto 2rem; text-align:center;
+            background:var(--bg-tint); border:1px dashed var(--primary-light);
+            border-radius:var(--radius); padding:0.75rem 1.5rem;
+            font-size:0.82rem; color:var(--primary);
+        }
+
+        /* === FOOTER === */
+        footer {
+            background:var(--primary-dark); color:rgba(255,255,255,0.7); padding:2rem 0;
+            text-align:center; font-size:0.8rem; margin-top:auto;
+        }
+        footer a { color:rgba(255,255,255,0.8); text-decoration:none; }
+        footer a:hover { color:#fff; }
+        .footer-brand { font-family:'Outfit'; font-weight:800; font-size:1.2rem; color:#fff; margin-bottom:0.25rem; }
+        .footer-tagline { font-size:0.8rem; color:rgba(255,255,255,0.45); margin-bottom:0.75rem; }
+
+        /* === GRADE COLORS === */
+        .grade-aaa { background:var(--grade-aaa-bg); color:var(--grade-aaa-text); }
+        .grade-aa  { background:var(--grade-aa-bg);  color:var(--grade-aa-text); }
+        .grade-a   { background:var(--grade-a-bg);   color:var(--grade-a-text); }
+        .grade-bbb { background:var(--grade-bbb-bg); color:var(--grade-bbb-text); }
+        .grade-bb  { background:var(--grade-bb-bg);  color:var(--grade-bb-text); }
+        .grade-b   { background:var(--grade-b-bg);   color:var(--grade-b-text); }
+        .grade-c   { background:var(--grade-c-bg);   color:var(--grade-c-text); }
+
+        .score-badge-aaa, .score-badge-aa { background:var(--grade-aaa-bg); }
+        .score-badge-aaa .passport-score-number, .score-badge-aaa .passport-score-grade { color:var(--grade-aaa-text); }
+        .score-badge-aa .passport-score-number, .score-badge-aa .passport-score-grade { color:var(--grade-aa-text); }
+        .score-badge-aa { background:var(--grade-aa-bg); }
+        .score-badge-a { background:var(--grade-a-bg); }
+        .score-badge-a .passport-score-number, .score-badge-a .passport-score-grade { color:var(--grade-a-text); }
+        .score-badge-bbb { background:var(--grade-bbb-bg); }
+        .score-badge-bbb .passport-score-number, .score-badge-bbb .passport-score-grade { color:var(--grade-bbb-text); }
+        .score-badge-bb { background:var(--grade-bb-bg); }
+        .score-badge-bb .passport-score-number, .score-badge-bb .passport-score-grade { color:var(--grade-bb-text); }
+        .score-badge-b { background:var(--grade-b-bg); }
+        .score-badge-b .passport-score-number, .score-badge-b .passport-score-grade { color:var(--grade-b-text); }
+        .score-badge-c { background:var(--grade-c-bg); }
+        .score-badge-c .passport-score-number, .score-badge-c .passport-score-grade { color:var(--grade-c-text); }
+
+        .bar-aaa, .bar-aa { background:linear-gradient(90deg, #059669, #10B981); }
+        .bar-a { background:linear-gradient(90deg, var(--primary), var(--primary-light)); }
+        .bar-bbb { background:linear-gradient(90deg, #CA8A04, var(--accent-gold)); }
+        .bar-bb { background:linear-gradient(90deg, #EA580C, #F97316); }
+        .bar-b { background:linear-gradient(90deg, #DC2626, #EF4444); }
+        .bar-c { background:linear-gradient(90deg, #991B1B, #DC2626); }
+
+        /* === LOADING === */
+        .loading { display:none; text-align:center; padding:3rem; }
+        .loading.active { display:block; }
+        .spinner {
+            width:36px; height:36px; border:3px solid var(--border-light);
+            border-top-color:var(--primary); border-radius:50%;
+            animation:spin 0.7s linear infinite; margin:0 auto 1rem;
+        }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .loading p { color:var(--text-muted); font-size:0.9rem; }
+
+        /* === FOCUS & A11Y === */
+        a:focus-visible, button:focus-visible, input:focus-visible { outline:3px solid var(--primary-light); outline-offset:2px; border-radius:2px; }
+        @media(prefers-reduced-motion:reduce){ *, *::before, *::after { animation-duration:0.01ms !important; transition-duration:0.01ms !important; } }
+
+        @media(max-width:600px) {
+            .passport-body { padding:1.25rem; }
+            .passport-header { padding:1rem 1.25rem; }
+            .passport-identity { flex-direction:column; }
+            .passport-score-badge { align-self:flex-start; }
+            .accordion-toggle { padding:1rem 1.25rem; font-size:0.95rem; }
+            .accordion-inner { padding:0 1.25rem 1.25rem; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- NAV -->
+<header class="nav" role="banner">
+    <div class="nav-inner">
+        <a href="/" class="nav-brand" aria-label="AIR Home">
+            <div>
+                <div class="nav-brand-mark">AIR</div>
+                <div class="nav-brand-label">Agent Identity Registry</div>
+            </div>
+        </a>
+        <nav class="nav-links" role="navigation" aria-label="Main navigation">
+            <a href="/">Home</a>
+            <a href="/lookup" style="color:var(--primary);">ID Lookup</a>
+            <a href="/#score">Trust Score</a>
+            <a href="/developers">Developers</a>
+            <a href="/register" class="nav-cta">Register an Agent</a>
+        </nav>
+    </div>
+</header>
+
+<!-- HERO / SEARCH -->
+<section class="lookup-hero">
+    <div class="container">
+        <div class="lookup-tagline">Neutral. Verifiable. Trusted.</div>
+        <h1>AIR ID Lookup</h1>
+        <p>Look up any registered AI agent to view its identity passport, trust score, and verification status.</p>
+
+        <div class="search-wrapper">
+            <form class="search-box" id="searchForm">
+                <input
+                    type="text"
+                    class="search-input"
+                    id="searchInput"
+                    placeholder="Enter AIR ID (e.g., AIR-7F3K-M9JQ-X2PL)"
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="AIR ID search"
+                >
+                <button type="submit" class="search-btn">Lookup</button>
+            </form>
+        </div>
+
+        <div class="examples-section">
+            <div class="examples-label">Try an example</div>
+            <div class="examples-grid" id="exampleChips"></div>
+        </div>
+    </div>
+</section>
+
+<!-- RESULTS -->
+<main>
+    <div class="results-area">
+        <div class="container">
+            <!-- Live notice -->
+            <div class="demo-notice" style="background:#DCFCE7;border-color:#059669;color:#166534;">
+                Live registry — data served from the AIR API at <code style="font-size:0.8em;">/api/v1</code>
+            </div>
+
+            <!-- Initial state -->
+            <div class="initial-state" id="initialState">
+                <p>Enter an AIR ID above or click an example to view an agent's identity passport.</p>
+            </div>
+
+            <!-- Loading -->
+            <div class="loading" id="loadingState">
+                <div class="spinner"></div>
+                <p>Resolving agent identity...</p>
+            </div>
+
+            <!-- Result -->
+            <div class="result-container" id="resultContainer"></div>
+
+            <!-- Error -->
+            <div class="result-container" id="errorContainer"></div>
+        </div>
+    </div>
+
+    <!-- How Trust Scores Work -->
+    <div class="info-section">
+        <div class="container">
+            <div class="accordion">
+                <button class="accordion-toggle" id="accordionToggle" aria-expanded="false" aria-controls="accordionContent">
+                    <span>How Trust Scores Work</span>
+                    <svg class="accordion-arrow" id="accordionArrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </button>
+                <div class="accordion-content" id="accordionContent" role="region" aria-labelledby="accordionToggle">
+                    <div class="accordion-inner">
+                        <p>The AIR Trust Score is a composite rating from 0 to 1000, calculated across five independently auditable components. The methodology is fully open and published for community review.</p>
+                        <ul class="method-list">
+                            <li>
+                                <div class="method-weight-label">25%</div>
+                                <div class="method-info">
+                                    <div class="method-name">Provenance</div>
+                                    <div class="method-desc">Verified creator identity, code signing, organizational track record, and supply chain integrity.</div>
+                                </div>
+                            </li>
+                            <li>
+                                <div class="method-weight-label">25%</div>
+                                <div class="method-info">
+                                    <div class="method-name">Behavioral History</div>
+                                    <div class="method-desc">Uptime, error rates, policy compliance, incident history, and consistency of outputs over time.</div>
+                                </div>
+                            </li>
+                            <li>
+                                <div class="method-weight-label">20%</div>
+                                <div class="method-info">
+                                    <div class="method-name">Transparency</div>
+                                    <div class="method-desc">Identity disclosure completeness, capability documentation, data handling policies, and boundary respect.</div>
+                                </div>
+                            </li>
+                            <li>
+                                <div class="method-weight-label">15%</div>
+                                <div class="method-info">
+                                    <div class="method-name">Security Posture</div>
+                                    <div class="method-desc">Authentication strength, encryption standards, vulnerability history, and security certification status.</div>
+                                </div>
+                            </li>
+                            <li>
+                                <div class="method-weight-label">15%</div>
+                                <div class="method-info">
+                                    <div class="method-name">Peer Attestations</div>
+                                    <div class="method-desc">Endorsements and incident reports from other verified agents, platforms, and independent auditors.</div>
+                                </div>
+                            </li>
+                        </ul>
+                        <p style="margin-top:1rem;">Scores map to letter grades used across the registry:</p>
+                        <table class="grade-table">
+                            <thead><tr><th>Grade</th><th>Score</th><th>Description</th></tr></thead>
+                            <tbody>
+                                <tr><td><span class="grade-badge-sm grade-aaa">AAA</span></td><td>950 &ndash; 1000</td><td>Exceptional trust. Highest verified confidence.</td></tr>
+                                <tr><td><span class="grade-badge-sm grade-aa">AA</span></td><td>850 &ndash; 949</td><td>Excellent. Fully production-ready.</td></tr>
+                                <tr><td><span class="grade-badge-sm grade-a">A</span></td><td>700 &ndash; 849</td><td>Good. Meets standard verification requirements.</td></tr>
+                                <tr><td><span class="grade-badge-sm grade-bbb">BBB</span></td><td>600 &ndash; 699</td><td>Adequate. Basic verification completed.</td></tr>
+                                <tr><td><span class="grade-badge-sm grade-bb">BB</span></td><td>500 &ndash; 599</td><td>Fair. Limited verification or history.</td></tr>
+                                <tr><td><span class="grade-badge-sm grade-b">B</span></td><td>400 &ndash; 499</td><td>Marginal. Significant gaps in verification.</td></tr>
+                                <tr><td><span class="grade-badge-sm grade-c">C</span></td><td>Below 400</td><td>Insufficient. Verification largely incomplete.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- FOOTER -->
+<footer>
+    <div class="container">
+        <div class="footer-brand">AIR</div>
+        <div class="footer-tagline">Neutral. Verifiable. Trusted.</div>
+        <p>&copy; 2026 Agent Identity Registry Foundation. Specifications released under Apache 2.0.</p>
+        <p style="margin-top:0.5rem;"><a href="/">Home</a> &middot; <a href="/#developers">API Docs</a> &middot; <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry" target="_blank" rel="noopener">GitHub</a> &middot; <a href="/contact">Contact</a></p>
+    </div>
+</footer>
+
+<script>
+(function() {
+    "use strict";
+
+    // ============================================================
+    // API CONFIG
+    // ============================================================
+    var API_BASE = "/api/v1";
+
+    // ============================================================
+    // HELPERS
+    // ============================================================
+    var COMPONENT_META = {
+        provenance:        { label: "Provenance",        weight: "25%" },
+        behavioral:        { label: "Behavioral",        weight: "25%" },
+        transparency:      { label: "Transparency",      weight: "20%" },
+        security:          { label: "Security",          weight: "15%" },
+        peer_attestations: { label: "Peer Attestations", weight: "15%" }
+    };
+
+    function escapeHTML(str) {
+        var div = document.createElement("div");
+        div.appendChild(document.createTextNode(str));
+        return div.textContent;
+    }
+
+    function formatDate(dateStr) {
+        var d = new Date(dateStr);
+        return d.toLocaleDateString("en-US", { year:"numeric", month:"long", day:"numeric" });
+    }
+
+    // Normalize API response to the shape buildPassport expects
+    function normalizeAgent(data) {
+        return {
+            air_id: data.air_id,
+            name: data.name,
+            description: data.description,
+            creator: data.creator ? data.creator.did : "",
+            created: data.created,
+            trust_score: data.trust_score,
+            trust_grade: data.trust_grade,
+            components: data.components,
+            verified: data.verified,
+            verification_level: data.verification_level,
+            capabilities: data.capabilities || [],
+            is_demo: data.is_demo || false,
+            last_updated: data.updated
+        };
+    }
+
+    function formatCapability(cap) {
+        return cap.replace(/_/g, " ").replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+    }
+
+    function getVerificationLabel(level) {
+        var labels = {
+            "self-verified": "Self-Verified",
+            "basic": "Basic Verification",
+            "standard": "Standard Verification",
+            "enhanced": "Enhanced Verification"
+        };
+        return labels[level] || level;
+    }
+
+    // ============================================================
+    // DOM BUILDER — builds passport card safely via DOM APIs
+    // ============================================================
+    function el(tag, attrs, children) {
+        var node = document.createElement(tag);
+        if (attrs) {
+            Object.keys(attrs).forEach(function(k) {
+                if (k === "className") { node.className = attrs[k]; }
+                else if (k === "textContent") { node.textContent = attrs[k]; }
+                else if (k === "style") { node.style.cssText = attrs[k]; }
+                else { node.setAttribute(k, attrs[k]); }
+            });
+        }
+        if (children) {
+            (Array.isArray(children) ? children : [children]).forEach(function(c) {
+                if (typeof c === "string") { node.appendChild(document.createTextNode(c)); }
+                else if (c) { node.appendChild(c); }
+            });
+        }
+        return node;
+    }
+
+    function svgEl(paths) {
+        var ns = "http://www.w3.org/2000/svg";
+        var svg = document.createElementNS(ns, "svg");
+        svg.setAttribute("viewBox", "0 0 24 24");
+        svg.setAttribute("fill", "none");
+        svg.setAttribute("stroke", "currentColor");
+        svg.setAttribute("stroke-width", "2");
+        paths.forEach(function(d) {
+            var p = document.createElementNS(ns, "path");
+            p.setAttribute("d", d);
+            svg.appendChild(p);
+        });
+        return svg;
+    }
+
+    function buildPassport(agent) {
+        var g = agent.trust_grade.toLowerCase();
+        var barClass = "bar-" + g;
+        var badgeClass = "score-badge-" + g;
+        var pct = (agent.trust_score / 1000 * 100).toFixed(1);
+
+        // Verified badge
+        var verifiedBadge;
+        if (agent.verified) {
+            verifiedBadge = el("span", { className: "passport-verified" }, [
+                svgEl(["M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"]),
+                "VERIFIED"
+            ]);
+        } else {
+            verifiedBadge = el("span", { className: "passport-unverified" }, [
+                svgEl(["M12 9v2m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"]),
+                "UNVERIFIED"
+            ]);
+        }
+
+        // Header
+        var header = el("div", { className: "passport-header" }, [
+            el("div", { className: "passport-header-left" }, [
+                el("div", { className: "passport-logo", textContent: "AIR" }),
+                el("div", { className: "passport-title", textContent: "Agent Identity Passport" })
+            ]),
+            verifiedBadge
+        ]);
+
+        // Identity section
+        var nameChildren = [document.createTextNode(agent.name)];
+        if (agent.is_demo) {
+            nameChildren.push(el("span", {
+                style: "display:inline-block;font-size:0.55rem;font-weight:700;letter-spacing:1px;background:#F0F4FF;color:#4338CA;border:1px solid #C7D2FE;padding:0.1rem 0.45rem;border-radius:2rem;margin-left:0.5rem;vertical-align:middle;",
+                textContent: "DEMO"
+            }));
+        }
+        var agentInfo = el("div", { className: "passport-agent-info" }, [
+            el("div", { className: "passport-agent-name" }, nameChildren),
+            el("div", { className: "passport-agent-id", textContent: agent.air_id }),
+            el("div", { className: "passport-agent-desc", textContent: agent.description })
+        ]);
+
+        var scoreBadge = el("div", { className: "passport-score-badge " + badgeClass }, [
+            el("div", { className: "passport-score-number", textContent: String(agent.trust_score) }),
+            el("div", { className: "passport-score-grade", textContent: agent.trust_grade }),
+            el("div", { className: "passport-score-label", textContent: "Trust Score" })
+        ]);
+
+        var identity = el("div", { className: "passport-identity" }, [agentInfo, scoreBadge]);
+
+        // Score bar
+        var barFill = el("div", { className: "score-bar-fill " + barClass, style: "width:0%", "data-target": pct });
+        var scoreBar = el("div", { className: "passport-score-bar" }, [
+            el("div", { className: "score-bar-track" }, [barFill]),
+            el("div", { className: "score-bar-labels" }, [
+                el("span", { textContent: "0" }),
+                el("span", { textContent: "250" }),
+                el("span", { textContent: "500" }),
+                el("span", { textContent: "750" }),
+                el("span", { textContent: "1000" })
+            ])
+        ]);
+
+        // Components
+        var compItems = [];
+        Object.keys(COMPONENT_META).forEach(function(key) {
+            var meta = COMPONENT_META[key];
+            var val = agent.components[key];
+            var compPct = (val / 1000 * 100).toFixed(1);
+
+            var compBarFill = el("div", { className: "comp-bar-fill " + barClass, style: "width:0%", "data-target": compPct });
+            var labelSpan = el("span", { className: "comp-label", textContent: meta.label });
+            var weightSpan = el("span", { className: "comp-weight", textContent: "(" + meta.weight + ")" });
+            var barTrack = el("div", { className: "comp-bar-track" }, [compBarFill]);
+            var leftDiv = el("div", {}, [labelSpan, weightSpan, barTrack]);
+            var scoreDiv = el("div", { className: "comp-score", textContent: String(val) });
+
+            compItems.push(el("div", { className: "comp-item" }, [leftDiv, scoreDiv]));
+        });
+
+        var components = el("div", { className: "passport-components" }, [
+            el("h4", { textContent: "Score Breakdown" }),
+            el("div", { className: "component-list" }, compItems)
+        ]);
+
+        // Meta
+        var meta = el("div", { className: "passport-meta" }, [
+            el("div", { className: "meta-item" }, [
+                el("div", { className: "meta-label", textContent: "Creator DID" }),
+                el("div", { className: "meta-value mono", textContent: agent.creator })
+            ]),
+            el("div", { className: "meta-item" }, [
+                el("div", { className: "meta-label", textContent: "Verification Level" }),
+                el("div", { className: "meta-value", textContent: getVerificationLabel(agent.verification_level) })
+            ]),
+            el("div", { className: "meta-item" }, [
+                el("div", { className: "meta-label", textContent: "Registered" }),
+                el("div", { className: "meta-value", textContent: formatDate(agent.created) })
+            ]),
+            el("div", { className: "meta-item" }, [
+                el("div", { className: "meta-label", textContent: "Last Updated" }),
+                el("div", { className: "meta-value", textContent: formatDate(agent.last_updated) })
+            ])
+        ]);
+
+        // Capabilities
+        var capTags = agent.capabilities.map(function(c) {
+            return el("span", { className: "cap-tag", textContent: formatCapability(c) });
+        });
+        var capabilities = el("div", { className: "passport-capabilities" }, [
+            el("h4", { textContent: "Capabilities" }),
+            el("div", { className: "cap-tags" }, capTags)
+        ]);
+
+        // Body
+        var body = el("div", { className: "passport-body" }, [identity, scoreBar, components, meta, capabilities]);
+
+        // Passport wrapper
+        return el("div", { className: "passport" }, [header, body]);
+    }
+
+    function buildError(query) {
+        var card = el("div", { className: "error-card" }, [
+            el("div", { className: "error-icon", textContent: "?" }),
+            el("h3", { textContent: "Agent Not Found" }),
+            el("p", {}, [
+                "No agent was found for the ID ",
+                el("strong", { textContent: query }),
+                ". Please check the format and try again."
+            ]),
+            el("div", { className: "error-format", textContent: "AIR-XXXX-XXXX-XXXX" })
+        ]);
+        return card;
+    }
+
+    function buildFormatError() {
+        return el("div", { className: "error-card" }, [
+            el("div", { className: "error-icon", textContent: "!" }),
+            el("h3", { textContent: "Invalid ID Format" }),
+            el("p", { textContent: "AIR IDs follow the format below. Please enter a valid identifier." }),
+            el("div", { className: "error-format", textContent: "AIR-XXXX-XXXX-XXXX" })
+        ]);
+    }
+
+    // ============================================================
+    // ANIMATE BARS
+    // ============================================================
+    function animateBars() {
+        setTimeout(function() {
+            var bars = document.querySelectorAll("[data-target]");
+            for (var i = 0; i < bars.length; i++) {
+                bars[i].style.width = bars[i].getAttribute("data-target") + "%";
+            }
+        }, 100);
+    }
+
+    // ============================================================
+    // SEARCH LOGIC
+    // ============================================================
+    function handleSearch(e) {
+        if (e && e.preventDefault) e.preventDefault();
+        var raw = document.getElementById("searchInput").value.trim().toUpperCase();
+        if (!raw) return;
+
+        var initial = document.getElementById("initialState");
+        var loading = document.getElementById("loadingState");
+        var resultEl = document.getElementById("resultContainer");
+        var errorEl = document.getElementById("errorContainer");
+
+        // Reset
+        initial.style.display = "none";
+        resultEl.classList.remove("visible");
+        while (resultEl.firstChild) resultEl.removeChild(resultEl.firstChild);
+        errorEl.classList.remove("visible");
+        while (errorEl.firstChild) errorEl.removeChild(errorEl.firstChild);
+
+        // Validate format
+        var pattern = /^AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+        if (!pattern.test(raw)) {
+            loading.classList.remove("active");
+            errorEl.appendChild(buildFormatError());
+            requestAnimationFrame(function() { errorEl.classList.add("visible"); });
+            return;
+        }
+
+        // Show loading
+        loading.classList.add("active");
+
+        // Fetch from live API
+        fetch(API_BASE + "/agents/" + raw)
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                loading.classList.remove("active");
+                if (data.error) {
+                    errorEl.appendChild(buildError(raw));
+                    requestAnimationFrame(function() { errorEl.classList.add("visible"); });
+                } else {
+                    var agent = normalizeAgent(data);
+                    resultEl.appendChild(buildPassport(agent));
+                    requestAnimationFrame(function() {
+                        resultEl.classList.add("visible");
+                        animateBars();
+                    });
+                }
+            })
+            .catch(function() {
+                loading.classList.remove("active");
+                errorEl.appendChild(buildError(raw));
+                requestAnimationFrame(function() { errorEl.classList.add("visible"); });
+            });
+
+        // Update URL
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, "", "/lookup?id=" + encodeURIComponent(raw));
+        }
+    }
+
+    // ============================================================
+    // EXAMPLE CHIPS
+    // ============================================================
+    function buildExampleChips() {
+        var container = document.getElementById("exampleChips");
+        fetch(API_BASE + "/agents?limit=8")
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                (data.agents || []).forEach(function(agent) {
+                    var chip = document.createElement("button");
+                    chip.className = "example-chip";
+                    chip.type = "button";
+
+                    var idText = document.createTextNode(agent.air_id);
+                    chip.appendChild(idText);
+
+                    var nameSpan = document.createElement("span");
+                    nameSpan.className = "example-chip-name";
+                    nameSpan.textContent = agent.name;
+                    chip.appendChild(nameSpan);
+
+                    chip.addEventListener("click", function() {
+                        document.getElementById("searchInput").value = agent.air_id;
+                        handleSearch(new Event("submit"));
+                    });
+                    container.appendChild(chip);
+                });
+            })
+            .catch(function() {
+                container.textContent = "Could not load examples";
+            });
+    }
+
+    // ============================================================
+    // ACCORDION
+    // ============================================================
+    function setupAccordion() {
+        var toggle = document.getElementById("accordionToggle");
+        var content = document.getElementById("accordionContent");
+        var arrow = document.getElementById("accordionArrow");
+        toggle.addEventListener("click", function() {
+            var isOpen = content.classList.contains("open");
+            content.classList.toggle("open");
+            arrow.classList.toggle("open");
+            toggle.setAttribute("aria-expanded", String(!isOpen));
+        });
+    }
+
+    // ============================================================
+    // URL PARAM
+    // ============================================================
+    function checkURLParam() {
+        var params = new URLSearchParams(window.location.search);
+        var id = params.get("id");
+        if (id) {
+            document.getElementById("searchInput").value = id;
+            handleSearch(new Event("submit"));
+        }
+    }
+
+    // ============================================================
+    // FORM SUBMIT
+    // ============================================================
+    function setupForm() {
+        var form = document.getElementById("searchForm");
+        form.addEventListener("submit", handleSearch);
+    }
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    document.addEventListener("DOMContentLoaded", function() {
+        buildExampleChips();
+        setupAccordion();
+        setupForm();
+        checkURLParam();
+    });
+
+})();
+</script>
+</body>
+</html>

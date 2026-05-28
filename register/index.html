@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Register your AI agent in the Agent Identity Registry. Get a verifiable AIR ID and transparent trust score.">
+
+    <!-- Open Graph + Twitter Card -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Agent Identity Registry">
+    <meta property="og:title" content="Register an Agent — AIR">
+    <meta property="og:description" content="Get a verifiable AIR ID and transparent trust score for your AI agent. Free, public, governed neutrally. Takes about a minute.">
+    <meta property="og:url" content="https://agentidentityregistry.org/register/">
+    <meta property="og:image" content="https://agentidentityregistry.org/assets/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="AIR — The global identity standard for AI agents">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Register an Agent — AIR">
+    <meta name="twitter:description" content="Get a verifiable AIR ID and transparent trust score for your AI agent. Free, public, governed neutrally. Takes about a minute.">
+    <meta name="twitter:image" content="https://agentidentityregistry.org/assets/og-image.png">
+    <link rel="canonical" href="https://agentidentityregistry.org/register/">
+
+    <title>Register an Agent — Agent Identity Registry</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Work+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1E3A8A;
+            --primary-dark: #172554;
+            --primary-light: #2563EB;
+            --accent-gold: #F59E0B;
+            --text: #0F172A;
+            --text-secondary: #475569;
+            --text-muted: #64748B;
+            --bg: #FFFFFF;
+            --bg-warm: #F8FAFC;
+            --bg-tint: #F0F4FF;
+            --border: #CBD5E1;
+            --border-light: #E2E8F0;
+            --success: #059669;
+            --success-bg: #DCFCE7;
+            --card: #FFFFFF;
+            --destructive: #DC2626;
+            --radius: 0.5rem;
+        }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        html { scroll-behavior:smooth; font-size:16px; }
+        body {
+            font-family:'Work Sans', system-ui, -apple-system, sans-serif;
+            line-height:1.6; color:var(--text); background:var(--bg-warm);
+            -webkit-font-smoothing:antialiased; min-height:100vh; display:flex; flex-direction:column;
+        }
+        h1,h2,h3,h4,h5 { font-family:'Outfit', sans-serif; font-weight:700; line-height:1.15; }
+
+        /* Nav */
+        .nav { position:sticky; top:0; z-index:50; background:rgba(255,255,255,0.95); backdrop-filter:blur(12px); border-bottom:1px solid var(--border-light); }
+        .nav-inner { max-width:1200px; margin:0 auto; padding:1rem 2rem; display:flex; align-items:center; justify-content:space-between; }
+        .nav-brand { display:flex; align-items:center; gap:0.75rem; text-decoration:none; color:var(--primary); }
+        .nav-brand-mark { font-family:'Outfit'; font-weight:800; font-size:1.6rem; letter-spacing:-1px; }
+        .nav-brand-label { font-size:0.65rem; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:var(--text-muted); }
+        .nav-links { display:flex; gap:2rem; align-items:center; }
+        .nav-links a { text-decoration:none; color:var(--text-secondary); font-size:0.9rem; font-weight:500; transition:color 0.2s; }
+        .nav-links a:hover { color:var(--primary); }
+        .nav-cta { background:var(--primary); color:#FFFFFF !important; padding:0.55rem 1.25rem; border-radius:var(--radius); font-weight:600; font-size:0.85rem; text-decoration:none; transition:background 0.2s, transform 0.15s; }
+        .nav-cta:hover { background:var(--primary-light); transform:translateY(-1px); }
+        @media(max-width:768px){ .nav-links{ display:none; } }
+
+        /* Hero */
+        .hero {
+            background:linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 50%, var(--primary-light) 100%);
+            color:#fff; padding:3rem 0 3.5rem; text-align:center; position:relative; overflow:hidden;
+        }
+        .hero::before {
+            content:''; position:absolute; top:-100px; right:-100px; width:400px; height:400px;
+            background:radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%); pointer-events:none;
+        }
+        .hero h1 { font-size:clamp(1.6rem,3.5vw,2.4rem); font-weight:800; letter-spacing:-1px; margin-bottom:0.5rem; }
+        .hero p { font-size:1rem; color:rgba(255,255,255,0.8); max-width:540px; margin:0 auto; }
+        .hero-tag { font-size:0.75rem; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:var(--accent-gold); margin-bottom:0.75rem; }
+
+        /* Main */
+        .container { max-width:1200px; margin:0 auto; padding:0 2rem; width:100%; }
+        main { flex:1; padding:2.5rem 0 4rem; }
+
+        /* Form layout */
+        .form-layout { display:grid; grid-template-columns:1fr 340px; gap:2rem; align-items:start; }
+        @media(max-width:860px) { .form-layout { grid-template-columns:1fr; } }
+
+        .form-card {
+            background:var(--card); border-radius:0.75rem; border:1px solid var(--border-light);
+            box-shadow:0 4px 24px rgba(0,0,0,0.06); overflow:hidden;
+        }
+        .form-section { padding:1.75rem 2rem; border-bottom:1px solid var(--border-light); }
+        .form-section:last-child { border-bottom:none; }
+        .form-section-title {
+            font-size:0.7rem; font-weight:600; letter-spacing:2px; text-transform:uppercase;
+            color:var(--text-muted); margin-bottom:1.25rem; display:flex; align-items:center; gap:0.5rem;
+        }
+        .form-section-num {
+            display:inline-flex; align-items:center; justify-content:center;
+            width:22px; height:22px; border-radius:50%; background:var(--primary); color:#fff;
+            font-size:0.65rem; font-weight:700;
+        }
+
+        /* Fields */
+        .field { margin-bottom:1.25rem; }
+        .field:last-child { margin-bottom:0; }
+        .field-label {
+            display:block; font-size:0.85rem; font-weight:600; color:var(--text);
+            margin-bottom:0.35rem;
+        }
+        .field-label .required { color:var(--destructive); margin-left:2px; }
+        .field-hint { font-size:0.78rem; color:var(--text-muted); margin-bottom:0.4rem; }
+        .field-input, .field-textarea, .field-select {
+            width:100%; padding:0.65rem 0.85rem; border:1.5px solid var(--border);
+            border-radius:var(--radius); font-family:'Work Sans', sans-serif; font-size:0.9rem;
+            color:var(--text); outline:none; transition:border-color 0.2s, box-shadow 0.2s;
+            background:var(--bg);
+        }
+        .field-input:focus, .field-textarea:focus, .field-select:focus {
+            border-color:var(--primary-light); box-shadow:0 0 0 3px rgba(37,99,235,0.1);
+        }
+        .field-input::placeholder, .field-textarea::placeholder { color:var(--text-muted); }
+        .field-textarea { resize:vertical; min-height:80px; }
+        .field-row { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+        @media(max-width:500px) { .field-row { grid-template-columns:1fr; } }
+
+        .field-check { display:flex; align-items:center; gap:0.5rem; cursor:pointer; }
+        .field-check input { width:18px; height:18px; accent-color:var(--primary); cursor:pointer; }
+        .field-check span { font-size:0.85rem; color:var(--text-secondary); }
+
+        /* Tags input */
+        .tags-wrapper { display:flex; flex-wrap:wrap; gap:0.4rem; padding:0.5rem 0.75rem; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--bg); min-height:42px; cursor:text; transition:border-color 0.2s; }
+        .tags-wrapper:focus-within { border-color:var(--primary-light); box-shadow:0 0 0 3px rgba(37,99,235,0.1); }
+        .tag {
+            display:inline-flex; align-items:center; gap:0.3rem; background:var(--bg-tint);
+            border:1px solid #C7D2FE; color:var(--primary); padding:0.2rem 0.55rem;
+            border-radius:2rem; font-size:0.78rem; font-weight:500;
+        }
+        .tag-remove {
+            cursor:pointer; font-size:1rem; line-height:1; color:var(--text-muted);
+            transition:color 0.15s; border:none; background:none; padding:0;
+        }
+        .tag-remove:hover { color:var(--destructive); }
+        .tags-input {
+            border:none; outline:none; font-family:'Work Sans', sans-serif; font-size:0.85rem;
+            flex:1; min-width:120px; background:transparent; padding:0.15rem 0;
+        }
+        .tags-input::placeholder { color:var(--text-muted); }
+
+        /* Submit */
+        .submit-section { padding:1.5rem 2rem; background:var(--bg-warm); }
+        .submit-btn {
+            width:100%; padding:0.85rem; border:none; border-radius:var(--radius);
+            background:var(--primary); color:#fff; font-family:'Outfit'; font-weight:700;
+            font-size:1.05rem; cursor:pointer; transition:all 0.2s; letter-spacing:0.3px;
+        }
+        .submit-btn:hover { background:var(--primary-light); transform:translateY(-1px); box-shadow:0 4px 12px rgba(37,99,235,0.3); }
+        .submit-btn:disabled { opacity:0.6; cursor:not-allowed; transform:none; box-shadow:none; }
+        .submit-note { font-size:0.75rem; color:var(--text-muted); text-align:center; margin-top:0.75rem; }
+
+        /* Sidebar */
+        .sidebar-card {
+            background:var(--card); border-radius:0.75rem; border:1px solid var(--border-light);
+            box-shadow:0 4px 24px rgba(0,0,0,0.06); padding:1.5rem; position:sticky; top:5rem;
+        }
+        .sidebar-title { font-size:0.95rem; margin-bottom:1rem; color:var(--primary-dark); }
+        .score-preview { text-align:center; padding:1.25rem 0; margin-bottom:1rem; border-bottom:1px solid var(--border-light); }
+        .score-preview-label { font-size:0.7rem; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.35rem; }
+        .score-preview-value { font-family:'Outfit'; font-size:3rem; font-weight:800; line-height:1; }
+        .score-preview-grade { font-family:'Outfit'; font-size:1.2rem; font-weight:700; margin-top:0.15rem; }
+        .score-hint { font-size:0.78rem; color:var(--text-muted); line-height:1.5; }
+        .score-hint strong { color:var(--text-secondary); }
+        .score-checklist { list-style:none; margin-top:1rem; }
+        .score-checklist li {
+            display:flex; align-items:flex-start; gap:0.5rem;
+            font-size:0.8rem; color:var(--text-secondary); padding:0.35rem 0;
+        }
+        .check-icon { flex-shrink:0; width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.65rem; font-weight:700; margin-top:1px; }
+        .check-on { background:var(--success-bg); color:#166534; }
+        .check-off { background:#F1F5F9; color:var(--text-muted); }
+
+        /* Success state */
+        .success-card {
+            background:var(--card); border-radius:0.75rem; border:2px solid var(--success);
+            box-shadow:0 4px 24px rgba(5,150,105,0.15); padding:2.5rem; text-align:center;
+            max-width:600px; margin:0 auto;
+        }
+        .success-icon {
+            width:64px; height:64px; border-radius:50%; background:var(--success-bg);
+            display:flex; align-items:center; justify-content:center; margin:0 auto 1.25rem;
+            font-size:1.8rem;
+        }
+        .success-card h2 { font-size:1.5rem; color:var(--primary-dark); margin-bottom:0.5rem; }
+        .success-card p { color:var(--text-secondary); margin-bottom:1.5rem; }
+        .success-air-id {
+            font-family:'Courier New', monospace; font-size:1.4rem; font-weight:700;
+            color:var(--primary); background:var(--bg-tint); border:2px solid #C7D2FE;
+            padding:0.75rem 1.5rem; border-radius:var(--radius); display:inline-block; margin-bottom:0.75rem;
+            letter-spacing:1px;
+        }
+        .success-score {
+            font-family:'Outfit'; font-size:1.1rem; font-weight:600; color:var(--text-secondary);
+            margin-bottom:1.5rem;
+        }
+        .success-score strong { color:var(--primary-dark); font-size:1.3rem; }
+        .success-actions { display:flex; gap:0.75rem; justify-content:center; flex-wrap:wrap; }
+        .btn {
+            padding:0.65rem 1.5rem; border-radius:var(--radius); font-family:'Outfit'; font-weight:600;
+            font-size:0.9rem; text-decoration:none; transition:all 0.2s; display:inline-block; border:none; cursor:pointer;
+        }
+        .btn-primary { background:var(--primary); color:#fff; }
+        .btn-primary:hover { background:var(--primary-light); }
+        .btn-outline { background:transparent; color:var(--primary); border:2px solid var(--border); }
+        .btn-outline:hover { border-color:var(--primary); background:var(--bg-tint); }
+
+        /* Error */
+        .form-error {
+            background:#FEF2F2; border:1px solid #FECACA; color:#991B1B;
+            padding:0.75rem 1rem; border-radius:var(--radius); font-size:0.85rem;
+            margin-bottom:1rem; display:none;
+        }
+
+        /* Footer */
+        footer { background:var(--primary-dark); color:rgba(255,255,255,0.6); padding:2rem 0; text-align:center; font-size:0.8rem; }
+        footer a { color:rgba(255,255,255,0.8); text-decoration:none; }
+        footer a:hover { color:#fff; }
+        .footer-brand { font-family:'Outfit'; font-weight:800; font-size:1.2rem; color:#fff; margin-bottom:0.25rem; }
+    </style>
+</head>
+<body>
+
+<!-- NAV -->
+<header class="nav">
+    <div class="nav-inner">
+        <a href="/" class="nav-brand">
+            <div>
+                <div class="nav-brand-mark">AIR</div>
+                <div class="nav-brand-label">Agent Identity Registry</div>
+            </div>
+        </a>
+        <nav class="nav-links">
+            <a href="/">Home</a>
+            <a href="/lookup">ID Lookup</a>
+            <a href="/register" style="color:var(--primary);">Register</a>
+            <a href="/developers">Developers</a>
+        </nav>
+    </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+    <div class="container">
+        <div class="hero-tag">Free &middot; Open Standard &middot; Verifiable</div>
+        <h1>Register Your AI Agent</h1>
+        <p>Get a unique AIR ID and transparent trust score. Your agent becomes discoverable and verifiable across the ecosystem.</p>
+    </div>
+</section>
+
+<!-- MAIN -->
+<main>
+    <div class="container">
+        <!-- Registration form -->
+        <div id="formView">
+            <div class="form-error" id="formError"></div>
+            <div class="form-layout">
+                <div>
+                    <form id="registerForm" class="form-card">
+                        <!-- Section 1: Agent Identity -->
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                <span class="form-section-num">1</span> Agent Identity
+                            </div>
+                            <div class="field">
+                                <label class="field-label">Agent Name <span class="required">*</span></label>
+                                <div class="field-hint">A clear, recognizable name for your agent.</div>
+                                <input type="text" class="field-input" id="agentName" placeholder="e.g., DataProcessor-v3" required maxlength="200">
+                                <div id="nameWarning" style="display:none;margin-top:0.5rem;padding:0.6rem 0.85rem;background:#FEF3C7;border:1px solid #FCD34D;border-radius:0.375rem;font-size:0.8rem;color:#92400E;"></div>
+                            </div>
+                            <div class="field">
+                                <label class="field-label">Description</label>
+                                <div class="field-hint">What does your agent do? Be specific about capabilities and use cases.</div>
+                                <textarea class="field-textarea" id="agentDesc" placeholder="e.g., Enterprise data processing agent for financial datasets..." maxlength="2000"></textarea>
+                            </div>
+                            <div class="field">
+                                <label class="field-label">Capabilities</label>
+                                <div class="field-hint">Press Enter or comma to add each capability.</div>
+                                <div class="tags-wrapper" id="capWrapper">
+                                    <input type="text" class="tags-input" id="capInput" placeholder="e.g., data_processing, NLP, code_review">
+                                </div>
+                                <input type="hidden" id="capHidden">
+                            </div>
+                        </div>
+
+                        <!-- Section 2: Creator Info -->
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                <span class="form-section-num">2</span> Creator Information
+                            </div>
+                            <div class="field-row">
+                                <div class="field">
+                                    <label class="field-label">Creator Name</label>
+                                    <input type="text" class="field-input" id="creatorName" placeholder="e.g., Acme AI Labs" maxlength="200">
+                                </div>
+                                <div class="field">
+                                    <label class="field-label">Creator Type</label>
+                                    <select class="field-select" id="creatorType">
+                                        <option value="individual">Individual</option>
+                                        <option value="organization">Organization</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label class="field-label">Creator DID <span class="required">*</span></label>
+                                <div class="field-hint">A Decentralized Identifier. Use <code>did:web:yourdomain.com</code> or <code>did:key:...</code></div>
+                                <input type="text" class="field-input" id="creatorDid" placeholder="e.g., did:web:yourdomain.com" required maxlength="500">
+                            </div>
+                        </div>
+
+                        <!-- Section 3: Transparency -->
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                <span class="form-section-num">3</span> Transparency &amp; Security
+                            </div>
+                            <label class="field-check">
+                                <input type="checkbox" id="openSource">
+                                <span>This agent is open source</span>
+                            </label>
+                            <div class="field" style="margin-top:1rem;">
+                                <label class="field-label">Code Repository</label>
+                                <input type="url" class="field-input" id="codeRepo" placeholder="e.g., https://github.com/org/agent">
+                            </div>
+                            <div class="field">
+                                <label class="field-label">Documentation URL</label>
+                                <input type="url" class="field-input" id="docsUrl" placeholder="e.g., https://docs.yourdomain.com/agent">
+                            </div>
+                            <div class="field">
+                                <label class="field-label">Security Certifications</label>
+                                <div class="field-hint">Press Enter or comma to add each certification.</div>
+                                <div class="tags-wrapper" id="certWrapper">
+                                    <input type="text" class="tags-input" id="certInput" placeholder="e.g., SOC2-Type2, ISO27001">
+                                </div>
+                                <input type="hidden" id="certHidden">
+                            </div>
+                        </div>
+
+                        <!-- Submit -->
+                        <div class="submit-section">
+                            <button type="submit" class="submit-btn" id="submitBtn">Register Agent</button>
+                            <div class="submit-note">Registration is free. Your agent will be assigned a unique AIR ID and initial trust score.</div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Sidebar: live score preview -->
+                <div>
+                    <div class="sidebar-card">
+                        <div class="sidebar-title">Estimated Trust Score</div>
+                        <div class="score-preview">
+                            <div class="score-preview-label">Initial Score</div>
+                            <div class="score-preview-value" id="previewScore">390</div>
+                            <div class="score-preview-grade" id="previewGrade" style="color:var(--destructive);">C</div>
+                        </div>
+                        <div class="score-hint">Your initial trust score is based on the information you provide. More complete profiles score higher.</div>
+                        <ul class="score-checklist" id="checklist"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success view (hidden initially) -->
+        <div id="successView" style="display:none;">
+        </div>
+    </div>
+</main>
+
+<!-- FOOTER -->
+<footer>
+    <div class="container">
+        <div class="footer-brand">AIR</div>
+        <p>&copy; 2026 Agent Identity Registry Foundation. Specifications released under Apache 2.0.</p>
+        <p style="margin-top:0.5rem;">
+            <a href="/">Home</a> &middot;
+            <a href="/lookup">Lookup</a> &middot;
+            <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry" target="_blank" rel="noopener">GitHub</a> &middot;
+            <a href="/contact">Contact</a>
+        </p>
+    </div>
+</footer>
+
+<script>
+(function() {
+    "use strict";
+
+    var API_BASE = "/api/v1";
+
+    // --- DOM helper ---
+    function el(tag, attrs, children) {
+        var node = document.createElement(tag);
+        if (attrs) {
+            Object.keys(attrs).forEach(function(k) {
+                if (k === "className") node.className = attrs[k];
+                else if (k === "textContent") node.textContent = attrs[k];
+                else if (k === "style") node.style.cssText = attrs[k];
+                else node.setAttribute(k, attrs[k]);
+            });
+        }
+        if (children) {
+            (Array.isArray(children) ? children : [children]).forEach(function(c) {
+                if (typeof c === "string") node.appendChild(document.createTextNode(c));
+                else if (c) node.appendChild(c);
+            });
+        }
+        return node;
+    }
+
+    // --- Tags input ---
+    function setupTags(wrapperId, inputId, hiddenId) {
+        var wrapper = document.getElementById(wrapperId);
+        var input = document.getElementById(inputId);
+        var hidden = document.getElementById(hiddenId);
+        var tags = [];
+
+        function addTag(text) {
+            text = text.trim().replace(/[^a-zA-Z0-9_\-\s]/g, "");
+            if (!text || tags.indexOf(text) !== -1) return;
+            if (tags.length >= 20) return;
+            tags.push(text);
+            render();
+            updateScore();
+        }
+
+        function removeTag(idx) {
+            tags.splice(idx, 1);
+            render();
+            updateScore();
+        }
+
+        function render() {
+            // Remove existing tag elements
+            var existing = wrapper.querySelectorAll(".tag");
+            for (var i = 0; i < existing.length; i++) existing[i].remove();
+
+            tags.forEach(function(t, idx) {
+                var removeBtn = el("button", { className: "tag-remove", textContent: "\u00d7", type: "button" });
+                removeBtn.addEventListener("click", function() { removeTag(idx); });
+                var tagEl = el("span", { className: "tag" }, [document.createTextNode(t + " "), removeBtn]);
+                wrapper.insertBefore(tagEl, input);
+            });
+            hidden.value = JSON.stringify(tags);
+        }
+
+        input.addEventListener("keydown", function(e) {
+            if ((e.key === "Enter" || e.key === ",") && input.value.trim()) {
+                e.preventDefault();
+                input.value.split(",").forEach(function(v) { addTag(v); });
+                input.value = "";
+            }
+            if (e.key === "Backspace" && !input.value && tags.length > 0) {
+                removeTag(tags.length - 1);
+            }
+        });
+
+        wrapper.addEventListener("click", function() { input.focus(); });
+        return function() { return tags; };
+    }
+
+    var getCaps = setupTags("capWrapper", "capInput", "capHidden");
+    var getCerts = setupTags("certWrapper", "certInput", "certHidden");
+
+    // --- Live score preview ---
+    function updateScore() {
+        var name = document.getElementById("agentName").value.trim();
+        var creatorDid = document.getElementById("creatorDid").value.trim();
+        var creatorName = document.getElementById("creatorName").value.trim();
+        var creatorType = document.getElementById("creatorType").value;
+        var openSource = document.getElementById("openSource").checked;
+        var codeRepo = document.getElementById("codeRepo").value.trim();
+        var docsUrl = document.getElementById("docsUrl").value.trim();
+        var certs = getCerts();
+        var caps = getCaps();
+
+        // Mirror the server-side calculation
+        var provenance = 300;
+        if (creatorDid) provenance += 100;
+        if (creatorName) provenance += 100;
+        if (creatorType === "organization") provenance += 100;
+        provenance = Math.min(provenance, 600);
+
+        var behavioral = 500;
+
+        var transparency = 300;
+        if (openSource) transparency += 150;
+        if (codeRepo) transparency += 100;
+        if (docsUrl) transparency += 100;
+        transparency = Math.min(transparency, 650);
+
+        var security = 300;
+        security += Math.min(certs.length * 100, 300);
+        security = Math.min(security, 600);
+
+        var peer = 300;
+
+        var total = Math.round(
+            provenance * 0.25 +
+            behavioral * 0.25 +
+            transparency * 0.20 +
+            security * 0.15 +
+            peer * 0.15
+        );
+
+        var grade, color;
+        if (total >= 950) { grade = "AAA"; color = "#166534"; }
+        else if (total >= 850) { grade = "AA"; color = "#065F46"; }
+        else if (total >= 700) { grade = "A"; color = "#1E40AF"; }
+        else if (total >= 600) { grade = "BBB"; color = "#854D0E"; }
+        else if (total >= 500) { grade = "BB"; color = "#9A3412"; }
+        else if (total >= 400) { grade = "B"; color = "#991B1B"; }
+        else { grade = "C"; color = "#7F1D1D"; }
+
+        document.getElementById("previewScore").textContent = String(total);
+        var gradeEl = document.getElementById("previewGrade");
+        gradeEl.textContent = grade;
+        gradeEl.style.color = color;
+
+        // Checklist
+        var checks = [
+            { on: !!creatorDid, text: "Creator DID provided" },
+            { on: !!creatorName, text: "Creator name provided" },
+            { on: creatorType === "organization", text: "Registered as organization" },
+            { on: openSource, text: "Open source" },
+            { on: !!codeRepo, text: "Code repository linked" },
+            { on: !!docsUrl, text: "Documentation linked" },
+            { on: certs.length > 0, text: "Security certifications (" + certs.length + ")" },
+            { on: caps.length > 0, text: "Capabilities listed (" + caps.length + ")" },
+        ];
+
+        var checklist = document.getElementById("checklist");
+        while (checklist.firstChild) checklist.removeChild(checklist.firstChild);
+        checks.forEach(function(c) {
+            var icon = el("span", {
+                className: "check-icon " + (c.on ? "check-on" : "check-off"),
+                textContent: c.on ? "\u2713" : "\u2013"
+            });
+            checklist.appendChild(el("li", {}, [icon, document.createTextNode(c.text)]));
+        });
+    }
+
+    // Bind score updates to all inputs
+    ["agentName", "agentDesc", "creatorName", "creatorDid", "codeRepo", "docsUrl"].forEach(function(id) {
+        document.getElementById(id).addEventListener("input", updateScore);
+    });
+    ["creatorType"].forEach(function(id) {
+        document.getElementById(id).addEventListener("change", updateScore);
+    });
+    document.getElementById("openSource").addEventListener("change", updateScore);
+
+    // Initial render
+    updateScore();
+
+    // --- Name duplicate check on blur ---
+    var nameCheckTimer = null;
+    document.getElementById("agentName").addEventListener("blur", function() {
+        var name = this.value.trim();
+        var warning = document.getElementById("nameWarning");
+        warning.style.display = "none";
+        if (!name) return;
+
+        clearTimeout(nameCheckTimer);
+        nameCheckTimer = setTimeout(function() {
+            fetch(API_BASE + "/agents/check-name?name=" + encodeURIComponent(name))
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.exists) {
+                        warning.textContent = "An agent named \u201c" + name + "\u201d already exists (" + data.count + " registered). You can still register \u2014 your agent will receive a unique AIR ID.";
+                        warning.style.display = "block";
+                    }
+                })
+                .catch(function() { /* silently ignore check failures */ });
+        }, 300);
+    });
+
+    // --- Form submission ---
+    document.getElementById("registerForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+
+        var errorEl = document.getElementById("formError");
+        errorEl.style.display = "none";
+
+        var name = document.getElementById("agentName").value.trim();
+        var creatorDid = document.getElementById("creatorDid").value.trim();
+
+        if (!name) { showError("Agent name is required."); return; }
+        if (!creatorDid) { showError("Creator DID is required."); return; }
+        if (!creatorDid.startsWith("did:")) { showError("Creator DID must start with 'did:' (e.g., did:web:yourdomain.com)"); return; }
+
+        var btn = document.getElementById("submitBtn");
+        btn.disabled = true;
+        btn.textContent = "Registering...";
+
+        var body = {
+            name: name,
+            description: document.getElementById("agentDesc").value.trim(),
+            creator_did: creatorDid,
+            creator_name: document.getElementById("creatorName").value.trim(),
+            creator_type: document.getElementById("creatorType").value,
+            capabilities: getCaps(),
+            security_certifications: getCerts(),
+            open_source: document.getElementById("openSource").checked,
+            code_repository: document.getElementById("codeRepo").value.trim(),
+            documentation_url: document.getElementById("docsUrl").value.trim()
+        };
+
+        fetch(API_BASE + "/agents/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+        })
+        .then(function(res) { return res.json().then(function(d) { return { status: res.status, data: d }; }); })
+        .then(function(result) {
+            btn.disabled = false;
+            btn.textContent = "Register Agent";
+
+            if (result.status === 201) {
+                showSuccess(result.data);
+            } else {
+                showError(result.data.error || "Registration failed. Please try again.");
+            }
+        })
+        .catch(function() {
+            btn.disabled = false;
+            btn.textContent = "Register Agent";
+            showError("Network error. Please check your connection and try again.");
+        });
+    });
+
+    function showError(msg) {
+        var errorEl = document.getElementById("formError");
+        errorEl.textContent = msg;
+        errorEl.style.display = "block";
+        errorEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    function showSuccess(data) {
+        document.getElementById("formView").style.display = "none";
+        var view = document.getElementById("successView");
+        view.style.display = "block";
+
+        while (view.firstChild) view.removeChild(view.firstChild);
+
+        var icon = el("div", { className: "success-icon", textContent: "\u2713" });
+        var heading = el("h2", { textContent: "Agent Registered Successfully" });
+        var desc = el("p", { textContent: "Your agent has been assigned a unique AIR ID and initial trust score." });
+        var airId = el("div", { className: "success-air-id", textContent: data.air_id });
+        var score = el("div", { className: "success-score" }, [
+            document.createTextNode("Initial Trust Score: "),
+            el("strong", { textContent: data.trust_score + " (" + data.trust_grade + ")" })
+        ]);
+        var tip = el("p", { style: "font-size:0.85rem;color:var(--text-muted);margin-bottom:1.5rem;" }, [
+            document.createTextNode("Submit verification documents to upgrade your trust level and improve your score.")
+        ]);
+        var actions = el("div", { className: "success-actions" }, [
+            el("a", { className: "btn btn-primary", href: "/lookup?id=" + encodeURIComponent(data.air_id), textContent: "View Agent Passport" }),
+            el("a", { className: "btn btn-outline", href: "/register", textContent: "Register Another" })
+        ]);
+
+        var cardChildren = [icon, heading, desc, airId, score];
+
+        // Show warnings (e.g., duplicate name)
+        if (data.warnings && data.warnings.length > 0) {
+            data.warnings.forEach(function(w) {
+                cardChildren.push(el("div", {
+                    style: "background:#FEF3C7;border:1px solid #FCD34D;border-radius:0.375rem;padding:0.6rem 1rem;font-size:0.8rem;color:#92400E;margin-bottom:1rem;text-align:left;"
+                }, [document.createTextNode(w)]));
+            });
+        }
+
+        cardChildren.push(tip, actions);
+        var card = el("div", { className: "success-card" }, cardChildren);
+        view.appendChild(card);
+        view.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AIR Blog — Updates, announcements, and insights from the Agent Identity Registry Foundation.">
+
+    <!-- Open Graph + Twitter Card -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Agent Identity Registry">
+    <meta property="og:title" content="AIR Blog — Notes from the Foundation">
+    <meta property="og:description" content="Updates, announcements, and insights from the Agent Identity Registry Foundation. Watch the project ship in public.">
+    <meta property="og:url" content="https://agentidentityregistry.org/blog/">
+    <meta property="og:image" content="https://agentidentityregistry.org/assets/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="AIR — The global identity standard for AI agents">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="AIR Blog — Notes from the Foundation">
+    <meta name="twitter:description" content="Updates, announcements, and insights from the Agent Identity Registry Foundation. Watch the project ship in public.">
+    <meta name="twitter:image" content="https://agentidentityregistry.org/assets/og-image.png">
+    <link rel="canonical" href="https://agentidentityregistry.org/blog/">
+
+    <title>Blog — Agent Identity Registry</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Work+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary:#1E3A8A;--primary-dark:#172554;--primary-light:#2563EB;
+            --accent-gold:#F59E0B;--text:#0F172A;--text-secondary:#475569;--text-muted:#64748B;
+            --bg:#FFFFFF;--bg-warm:#F8FAFC;--bg-tint:#F0F4FF;--border:#CBD5E1;--border-light:#E2E8F0;
+            --success:#059669;--success-bg:#DCFCE7;--card:#FFFFFF;--radius:0.5rem;
+        }
+        *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+        html{scroll-behavior:smooth;font-size:16px;}
+        body{font-family:'Work Sans',system-ui,sans-serif;line-height:1.6;color:var(--text);background:var(--bg-warm);-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column;}
+        h1,h2,h3,h4{font-family:'Outfit',sans-serif;font-weight:700;line-height:1.15;}
+        .nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border-light);}
+        .nav-inner{max-width:1200px;margin:0 auto;padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;}
+        .nav-brand{display:flex;align-items:center;gap:0.75rem;text-decoration:none;color:var(--primary);}
+        .nav-brand-mark{font-family:'Outfit';font-weight:800;font-size:1.6rem;letter-spacing:-1px;}
+        .nav-brand-label{font-size:0.65rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);}
+        .nav-links{display:flex;gap:2rem;align-items:center;}
+        .nav-links a{text-decoration:none;color:var(--text-secondary);font-size:0.9rem;font-weight:500;transition:color 0.2s;}
+        .nav-links a:hover{color:var(--primary);}
+        .nav-cta{background:var(--primary);color:#fff!important;padding:0.55rem 1.25rem;border-radius:var(--radius);font-weight:600;font-size:0.85rem;text-decoration:none;transition:background 0.2s;}
+        .nav-cta:hover{background:var(--primary-light);}
+        @media(max-width:768px){.nav-links{display:none;}}
+
+        .hero{background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 50%,var(--primary-light) 100%);color:#fff;padding:3.5rem 0 4rem;text-align:center;}
+        .hero h1{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:800;letter-spacing:-1px;margin-bottom:0.5rem;}
+        .hero p{font-size:1.05rem;color:rgba(255,255,255,0.8);max-width:560px;margin:0 auto;}
+        .hero-tag{font-size:0.75rem;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--accent-gold);margin-bottom:0.75rem;}
+
+        .container{max-width:800px;margin:0 auto;padding:0 2rem;width:100%;}
+        main{flex:1;padding:3rem 0 4rem;}
+
+        .post{background:var(--card);border:1px solid var(--border-light);border-radius:0.75rem;padding:2rem 2.25rem;margin-bottom:2rem;transition:box-shadow 0.2s;}
+        .post:hover{box-shadow:0 4px 16px rgba(0,0,0,0.06);}
+        .post-date{font-size:0.75rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.5rem;}
+        .post-tag{display:inline-block;font-size:0.65rem;font-weight:600;letter-spacing:0.5px;padding:0.15rem 0.5rem;border-radius:2rem;margin-left:0.5rem;vertical-align:middle;}
+        .tag-announcement{background:var(--bg-tint);color:var(--primary);border:1px solid #C7D2FE;}
+        .tag-standards{background:var(--success-bg);color:#166534;border:1px solid #BBF7D0;}
+        .tag-technical{background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;}
+        .post h2{font-size:1.35rem;color:var(--primary-dark);margin-bottom:0.75rem;}
+        .post p{color:var(--text-secondary);font-size:0.92rem;margin-bottom:0.75rem;}
+        .post ul{color:var(--text-secondary);font-size:0.92rem;margin:0 0 0.75rem 1.5rem;}
+        .post li{margin-bottom:0.35rem;}
+        .post a{color:var(--primary);text-decoration:none;font-weight:500;}
+        .post a:hover{text-decoration:underline;}
+        .post-divider{border:none;border-top:1px solid var(--border-light);margin:1rem 0;}
+
+        footer{background:var(--primary-dark);color:rgba(255,255,255,0.6);padding:2rem 0;text-align:center;font-size:0.8rem;}
+        footer a{color:rgba(255,255,255,0.8);text-decoration:none;}
+        footer a:hover{color:#fff;}
+        .footer-brand{font-family:'Outfit';font-weight:800;font-size:1.2rem;color:#fff;margin-bottom:0.25rem;}
+    </style>
+</head>
+<body>
+
+<header class="nav">
+    <div class="nav-inner">
+        <a href="/" class="nav-brand"><div><div class="nav-brand-mark">AIR</div><div class="nav-brand-label">Agent Identity Registry</div></div></a>
+        <nav class="nav-links">
+            <a href="/">Home</a>
+            <a href="/lookup">ID Lookup</a>
+            <a href="/blog" style="color:var(--primary);">Blog</a>
+            <a href="/developers">Developers</a>
+            <a href="/register" class="nav-cta">Register an Agent</a>
+        </nav>
+    </div>
+</header>
+
+<section class="hero">
+    <div class="container">
+        <div class="hero-tag">Updates &amp; Announcements</div>
+        <h1>Blog</h1>
+        <p>What we're building, what we're learning, and where AIR is headed.</p>
+    </div>
+</section>
+
+<main>
+    <div class="container">
+
+        <!-- Post 0 — May 2026 milestone update -->
+        <article class="post">
+            <div class="post-date">May 27, 2026 <span class="post-tag tag-announcement">Announcement</span></div>
+            <h2>May 2026: Python SDK, MCP Server, CLI, OpenAPI Spec, and a New Developer Surface</h2>
+            <p>Quiet for a few weeks, busy underneath. Between May 15 and May 27 we shipped the complete developer surface for AIR — Python SDK on PyPI, MCP server on PyPI, a CLI tool, an OpenAPI 3.1 spec, a new <a href="/developers">/developers</a> page, plus a major API sprint that landed did:wba support, public-key registration, and W3C DID documents. Here's what's new and where to find it.</p>
+
+            <h3 style="margin-top:1.25rem;color:var(--primary-dark);font-size:1.05rem;">API sprint (May 22–24) — eight steps + a bug fix</h3>
+            <p>The registry API went from "basic CRUD" to "complete W3C-aligned trust infrastructure" in three days:</p>
+            <ul>
+                <li><strong>did:wba support</strong> — Agents can register with a <code>did:wba:example.com:agents:my-bot</code> creator DID. AIR validates the format strictly (no IPv4 literals, no localhost) and performs best-effort resolution (3-second timeout, 1KB cap, no redirect-following).</li>
+                <li><strong>Public key registration</strong> — Optional <code>public_key</code> field (Ed25519, base64url, 32 bytes). Required when creator DID is a did:wba.</li>
+                <li><strong>Per-agent secrets</strong> — Every registration returns a 32-char <code>agent_secret</code> (shown once). Required to call <code>PUT /agents/{air_id}</code>. Stored as SHA-256 hash; compared in constant time.</li>
+                <li><strong>W3C DID document endpoint</strong> — <code>GET /api/v1/agents/{air_id}/did-document</code> returns the agent's full DID document with <code>Ed25519VerificationKey2020</code> publicKeyMultibase. Cacheable for 5 minutes at the edge.</li>
+                <li><strong>AIR-minted did:wba</strong> — Agents without their own domain can register with just a public key. AIR mints <code>did:wba:agentidentityregistry.org:agents:{air_id}</code> for them and serves the DID document.</li>
+            </ul>
+            <p>Plus a critical bug fix: BASE32 encoding had been using only 29 characters instead of the Crockford 32-char alphabet, producing "undefined" segments in roughly a third of new AIR IDs. Fixed and verified.</p>
+
+            <h3 style="margin-top:1.25rem;color:var(--primary-dark);font-size:1.05rem;">Python SDK — <code>pip install agent-identity-registry</code></h3>
+            <p>An async Python client covering all 11 endpoints. Pydantic v2 models field-mapped to the actual API JSON. A seven-class exception hierarchy that distinguishes <code>AgentNotFoundError</code> from <code>RateLimitedError</code> (with <code>retry_after_seconds</code>) from <code>NetworkError</code> and the rest. 53 tests behind it (47 unit, 6 live integration).</p>
+            <p>One-liner to try it:</p>
+            <p><code>$ pip install agent-identity-registry &amp;&amp; air health</code></p>
+            <p>That installs the SDK <em>and</em> the <code>air</code> CLI: <code>air list</code>, <code>air lookup AIR-XXXX-XXXX-XXXX</code>, <code>air score AIR-XXXX-XXXX-XXXX</code> (with a bar chart of the five trust components), <code>air did-doc</code>, <code>air check</code>, <code>air register</code>. <code>--json</code> for scripting; <code>--no-color</code> when piping. Source: <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry-python" target="_blank" rel="noopener">agent-identity-registry-python</a>.</p>
+
+            <h3 style="margin-top:1.25rem;color:var(--primary-dark);font-size:1.05rem;">MCP server — <code>pip install air-mcp-server</code></h3>
+            <p>A Model Context Protocol server that drops AIR into any LLM client (Claude Code, Cursor, Codex, anything MCP-aware). Six read-only tools — <code>air_health</code>, <code>air_list_agents</code>, <code>air_lookup_agent</code>, <code>air_trust_score</code>, <code>air_did_document</code>, <code>air_check_name</code>. 27 tests cover registration, happy paths, structured-error returns for 404/429/5xx/network failures, env-var config.</p>
+            <p>One-line MCP config gets your LLM talking to AIR:</p>
+            <p><code>{ "mcpServers": { "air": { "command": "air-mcp-server" } } }</code></p>
+            <p>v0.1 is intentionally read-only — write operations (register, update) require an agent secret that would cross the LLM context, a sharper design decision deferred to v0.2. Source: <a href="https://github.com/AgentIdentityRegistry/air-mcp-server" target="_blank" rel="noopener">air-mcp-server</a>.</p>
+
+            <h3 style="margin-top:1.25rem;color:var(--primary-dark);font-size:1.05rem;">OpenAPI 3.1 spec — for every other language</h3>
+            <p>The full API contract is now a 1,154-line OpenAPI 3.1 document served at <a href="/api/v1/openapi.yaml">/api/v1/openapi.yaml</a> with <code>Access-Control-Allow-Origin: *</code>. Drop it into <code>openapi-typescript</code>, <code>oapi-codegen</code> (Go), <code>openapi-generator-cli</code> (Rust, Java, Kotlin, C#, PHP, Ruby, Swift, etc.) and generate a typed native client in seconds. Paste the URL into Swagger Editor or Redoc to browse it visually.</p>
+            <p>It validates as OpenAPI 3.1 both locally and after a round-trip through the live URL. The <a href="/developers">/developers</a> page has install commands per language.</p>
+
+            <h3 style="margin-top:1.25rem;color:var(--primary-dark);font-size:1.05rem;">/developers — a real developer guide</h3>
+            <p>A dedicated <a href="/developers">/developers</a> subpage with quick start, full Python SDK + CLI + MCP install walkthroughs, OpenAPI generator examples for TS/Go/Rust, a REST API reference table, and a troubleshooting section. Replaces the previous placeholder section on the homepage that promised "SDKs coming soon" and showed a code sample with the wrong endpoints.</p>
+
+            <h3 style="margin-top:1.25rem;color:var(--primary-dark);font-size:1.05rem;">What's still being built</h3>
+            <p>Plenty. The trust score model still has static placeholder values for the behavioral and peer-attestation components (no real history data yet). The MCP server is read-only. Standards engagement conversations (Paola, Taylor, Ben at SwarmSync, the W3C CG presentation) are in flight. BossClaw — the open-source reference-implementation agent that demonstrates the full AIR integration — is in active development in a separate repo. We'll post more as those land.</p>
+
+            <hr class="post-divider">
+            <p>Try it now: <a href="/developers">View the developer guide</a> or just <code>pip install agent-identity-registry &amp;&amp; air health</code> in any terminal with Python 3.10+.</p>
+        </article>
+
+        <!-- Post 1 -->
+        <article class="post">
+            <div class="post-date">April 7, 2026 <span class="post-tag tag-announcement">Announcement</span></div>
+            <h2>AIR Registry API Is Live</h2>
+            <p>Today we're announcing the launch of the AIR Registry API — a working REST API for registering AI agents and querying trust scores. This is the first step from specification to implementation.</p>
+            <p>What's now available:</p>
+            <ul>
+                <li><strong>Agent Registration</strong> — Register any AI agent and receive a unique AIR ID (format: <code>AIR-XXXX-XXXX-XXXX</code>)</li>
+                <li><strong>Trust Scoring</strong> — Each agent receives an initial trust score based on our five-component model (Provenance, Behavioral, Transparency, Security, Peer Attestations)</li>
+                <li><strong>Agent Lookup</strong> — Query any registered agent's identity passport and trust score breakdown</li>
+                <li><strong>Registration Form</strong> — A web-based form at <a href="/register">/register</a> with a live trust score preview as you fill in details</li>
+            </ul>
+            <p>The API runs on Cloudflare Workers with a D1 database, deployed at the edge globally. It's free to use and the source code is fully open on <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry" target="_blank" rel="noopener">GitHub</a>.</p>
+            <hr class="post-divider">
+            <p>Try it: <a href="/register">Register an agent</a> or <a href="/lookup">look up an existing one</a>.</p>
+        </article>
+
+        <!-- Post 2 -->
+        <article class="post">
+            <div class="post-date">April 7, 2026 <span class="post-tag tag-standards">Standards</span></div>
+            <h2>Engaging with W3C, IETF, and DIF</h2>
+            <p>We've submitted introductions to three major standards organizations working on adjacent problems:</p>
+            <ul>
+                <li><strong>W3C AI Agent Protocol Community Group</strong> — Exploring how AIR's trust layer complements their agent discovery and communication protocols</li>
+                <li><strong>IETF AIMS / WIMSE Working Group</strong> — Discussing how AIR trust scoring layers on top of AIMS agent authentication</li>
+                <li><strong>Decentralized Identity Foundation (DIF)</strong> — Contributing to the Trusted AI Agents Working Group as a DID/VC-native implementation</li>
+            </ul>
+            <p>This follows our <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry" target="_blank" rel="noopener">public comment to NIST CAISI</a> submitted on April 3. Our approach is to complement existing standards, not compete with them — AIR provides the trust verification layer, while these bodies define the communication and authentication layers.</p>
+        </article>
+
+        <!-- Post 3 -->
+        <article class="post">
+            <div class="post-date">April 3, 2026 <span class="post-tag tag-standards">Standards</span></div>
+            <h2>NIST CAISI Public Comment Submitted</h2>
+            <p>We submitted a detailed public comment to the National Institute of Standards and Technology (NIST) in response to their Concept Paper on AI Agent Identity and Authorization, part of the Consortium for the Advancement of Intelligent Systems (CAISI) initiative.</p>
+            <p>Our comment addresses gaps in current agent identity frameworks and proposes how a neutral, standards-based registry like AIR can help. The full specification and supporting materials are available in our <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry" target="_blank" rel="noopener">GitHub repository</a>.</p>
+        </article>
+
+        <!-- Post 4 -->
+        <article class="post">
+            <div class="post-date">March 2026 <span class="post-tag tag-technical">Technical</span></div>
+            <h2>AIR Identity Specification v0.1 Published</h2>
+            <p>We've published the first draft of the AIR Identity Specification, covering:</p>
+            <ul>
+                <li>The AIR ID format — cryptographic identifiers using SHA-256 hashing and base32 encoding with CRC32 checksums</li>
+                <li>Agent Identity Documents — JSON-LD structures linked to W3C Decentralized Identifiers</li>
+                <li>Trust Score Methodology — a five-component, 0-1000 scoring model with letter grades (AAA through C)</li>
+                <li>Verification protocols and credential formats based on W3C Verifiable Credentials</li>
+            </ul>
+            <p>The specification is open for community review. Read it on <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry/blob/main/docs/SPECIFICATION.md" target="_blank" rel="noopener">GitHub</a> and share feedback via <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry/discussions" target="_blank" rel="noopener">Discussions</a>.</p>
+        </article>
+
+    </div>
+</main>
+
+<footer>
+    <div class="container">
+        <div class="footer-brand">AIR</div>
+        <p>&copy; 2026 Agent Identity Registry Foundation. Specifications released under Apache 2.0.</p>
+        <p style="margin-top:0.5rem;"><a href="/">Home</a> &middot; <a href="/lookup">Lookup</a> &middot; <a href="/about">About</a> &middot; <a href="/governance">Governance</a> &middot; <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry" target="_blank" rel="noopener">GitHub</a> &middot; <a href="/contact">Contact</a></p>
+    </div>
+</footer>
+</body>
+</html>

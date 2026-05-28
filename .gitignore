@@ -1,0 +1,48 @@
+# OS / editor noise
+.DS_Store
+*.swp
+.vscode-test
+
+# Build / dependency dirs
+node_modules/
+*.tsbuildinfo
+.cache
+.parcel-cache
+.next
+.nuxt
+dist
+out
+
+# Cloudflare / wrangler local state
+.wrangler/
+.dev.vars
+
+# Sibling repos (these are separately versioned at:
+#   github.com/AgentIdentityRegistry/agent-identity-registry-python
+#   github.com/AgentIdentityRegistry/air-mcp-server
+# Their working trees nest here only for editing convenience.)
+sdk/
+mcp-server/
+
+# Agent / tooling local state
+.omc/
+.playwright-mcp/
+.claude/local/
+
+# Logs + runtime
+*.log
+npm-debug.log*
+yarn-debug.log*
+pids
+*.pid
+*.pid.lock
+
+# Coverage
+coverage
+*.lcov
+.nyc_output
+
+# Env / secrets
+.env
+.env.*
+!.env.example

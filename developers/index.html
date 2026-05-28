@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Build with AIR — Python SDK, CLI, MCP server, and OpenAPI 3.1 spec for the Agent Identity Registry. Install in one line, integrate in any language.">
+
+    <!-- Open Graph + Twitter Card -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Agent Identity Registry">
+    <meta property="og:title" content="Build with AIR — SDK, CLI, MCP Server, OpenAPI">
+    <meta property="og:description" content="Python SDK, command-line tool, MCP server, and OpenAPI 3.1 spec. Install in one line, integrate in any language. Open source under Apache 2.0.">
+    <meta property="og:url" content="https://agentidentityregistry.org/developers/">
+    <meta property="og:image" content="https://agentidentityregistry.org/assets/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="AIR — The global identity standard for AI agents">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Build with AIR — SDK, CLI, MCP Server, OpenAPI">
+    <meta name="twitter:description" content="Python SDK, command-line tool, MCP server, and OpenAPI 3.1 spec. Install in one line, integrate in any language. Open source under Apache 2.0.">
+    <meta name="twitter:image" content="https://agentidentityregistry.org/assets/og-image.png">
+    <link rel="canonical" href="https://agentidentityregistry.org/developers/">
+
+    <title>Developers — Agent Identity Registry</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Work+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary:#1E3A8A;--primary-dark:#172554;--primary-light:#2563EB;
+            --accent-gold:#F59E0B;--text:#0F172A;--text-secondary:#475569;--text-muted:#64748B;
+            --bg:#FFFFFF;--bg-warm:#F8FAFC;--bg-tint:#F0F4FF;--border:#CBD5E1;--border-light:#E2E8F0;
+            --code-bg:#0F172A;--code-text:#E2E8F0;--code-cm:#64748B;--code-kw:#60A5FA;--code-str:#86EFAC;
+            --success:#059669;--card:#FFFFFF;--radius:0.5rem;
+        }
+        *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+        html{scroll-behavior:smooth;font-size:16px;}
+        body{font-family:'Work Sans',system-ui,sans-serif;line-height:1.6;color:var(--text);background:var(--bg-warm);-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column;}
+        h1,h2,h3,h4{font-family:'Outfit',sans-serif;font-weight:700;line-height:1.15;}
+        a{color:var(--primary);}
+        a:hover{color:var(--primary-light);}
+        code,pre{font-family:'JetBrains Mono','SF Mono','Menlo',monospace;}
+
+        .nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border-light);}
+        .nav-inner{max-width:1200px;margin:0 auto;padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;}
+        .nav-brand{display:flex;align-items:center;gap:0.75rem;text-decoration:none;color:var(--primary);}
+        .nav-brand-mark{font-family:'Outfit';font-weight:800;font-size:1.6rem;letter-spacing:-1px;}
+        .nav-brand-label{font-size:0.65rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);}
+        .nav-links{display:flex;gap:2rem;align-items:center;}
+        .nav-links a{text-decoration:none;color:var(--text-secondary);font-size:0.9rem;font-weight:500;transition:color 0.2s;}
+        .nav-links a:hover{color:var(--primary);}
+        .nav-cta{background:var(--primary);color:#fff!important;padding:0.55rem 1.25rem;border-radius:var(--radius);font-weight:600;font-size:0.85rem;text-decoration:none;transition:background 0.2s;}
+        .nav-cta:hover{background:var(--primary-light);}
+        @media(max-width:768px){.nav-links{display:none;}}
+
+        .hero{background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 50%,var(--primary-light) 100%);color:#fff;padding:3.5rem 0 4rem;text-align:center;}
+        .hero h1{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:800;letter-spacing:-1px;margin-bottom:0.5rem;}
+        .hero p{font-size:1.05rem;color:rgba(255,255,255,0.85);max-width:620px;margin:0 auto;}
+        .hero-tag{font-size:0.75rem;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--accent-gold);margin-bottom:0.75rem;}
+        .hero-pill-row{display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin-top:1.5rem;}
+        .hero-pill{display:inline-flex;align-items:center;gap:0.4rem;padding:0.35rem 0.85rem;border-radius:2rem;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);font-size:0.8rem;color:rgba(255,255,255,0.9);}
+
+        .container{max-width:900px;margin:0 auto;padding:0 2rem;width:100%;}
+        main{flex:1;padding:3rem 0 4rem;}
+
+        .toc{background:var(--card);border:1px solid var(--border-light);border-radius:0.75rem;padding:1.25rem 1.5rem;margin-bottom:2.5rem;}
+        .toc-label{font-size:0.7rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.6rem;}
+        .toc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.5rem 1rem;}
+        .toc a{font-size:0.9rem;color:var(--text-secondary);text-decoration:none;}
+        .toc a:hover{color:var(--primary);}
+
+        .content-section{margin-bottom:3rem;scroll-margin-top:6rem;}
+        .content-section h2{font-size:1.5rem;color:var(--primary-dark);margin-bottom:1rem;padding-bottom:0.5rem;border-bottom:2px solid var(--border-light);}
+        .content-section h3{font-size:1.1rem;color:var(--primary-dark);margin:1.5rem 0 0.5rem;}
+        .content-section p{color:var(--text-secondary);margin-bottom:1rem;font-size:0.95rem;}
+        .content-section ul{color:var(--text-secondary);margin:0 0 1rem 1.5rem;font-size:0.95rem;}
+        .content-section li{margin-bottom:0.4rem;}
+        .content-section li code,.content-section p code{background:var(--bg-tint);color:var(--primary-dark);padding:0.1rem 0.4rem;border-radius:3px;font-size:0.85em;}
+
+        pre.code{background:var(--code-bg);color:var(--code-text);padding:1.25rem 1.5rem;border-radius:0.5rem;overflow-x:auto;margin:0.5rem 0 1.25rem;font-size:0.85rem;line-height:1.55;}
+        pre.code .cm{color:var(--code-cm);}
+        pre.code .kw{color:var(--code-kw);font-weight:600;}
+        pre.code .str{color:var(--code-str);}
+
+        .feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-top:1rem;}
+        @media(max-width:600px){.feature-grid{grid-template-columns:1fr;}}
+        .feature-card{background:var(--card);border:1px solid var(--border-light);border-radius:0.75rem;padding:1.25rem;}
+        .feature-card h4{font-size:0.95rem;color:var(--primary-dark);margin-bottom:0.4rem;}
+        .feature-card p{font-size:0.85rem;color:var(--text-muted);margin:0;}
+
+        .cmd-table{width:100%;border-collapse:collapse;margin:0.5rem 0 1rem;font-size:0.9rem;}
+        .cmd-table th,.cmd-table td{padding:0.55rem 0.75rem;text-align:left;border-bottom:1px solid var(--border-light);}
+        .cmd-table th{font-family:'Outfit';font-weight:700;color:var(--primary-dark);font-size:0.8rem;letter-spacing:0.5px;text-transform:uppercase;background:var(--bg-tint);}
+        .cmd-table td code{background:var(--bg-tint);color:var(--primary-dark);padding:0.1rem 0.4rem;border-radius:3px;font-size:0.85em;}
+
+        .callout{background:var(--bg-tint);border-left:3px solid var(--primary-light);padding:1rem 1.25rem;border-radius:0 0.5rem 0.5rem 0;margin:1rem 0;font-size:0.9rem;}
+        .callout-warn{background:#FEF3C7;border-left-color:var(--accent-gold);}
+        .callout strong{color:var(--primary-dark);}
+
+        footer{background:var(--primary-dark);color:rgba(255,255,255,0.6);padding:2rem 0;text-align:center;font-size:0.8rem;}
+        footer a{color:rgba(255,255,255,0.8);text-decoration:none;}
+        footer a:hover{color:#fff;}
+        .footer-brand{font-family:'Outfit';font-weight:800;font-size:1.2rem;color:#fff;margin-bottom:0.25rem;}
+    </style>
+</head>
+<body>
+
+<header class="nav">
+    <div class="nav-inner">
+        <a href="/" class="nav-brand"><div><div class="nav-brand-mark">AIR</div><div class="nav-brand-label">Agent Identity Registry</div></div></a>
+        <nav class="nav-links">
+            <a href="/">Home</a>
+            <a href="/lookup">ID Lookup</a>
+            <a href="/about">About</a>
+            <a href="/developers" style="color:var(--primary);">Developers</a>
+            <a href="/register" class="nav-cta">Register an Agent</a>
+        </nav>
+    </div>
+</header>
+
+<section class="hero">
+    <div class="container">
+        <div class="hero-tag">Build with AIR</div>
+        <h1>Developer Guide</h1>
+        <p>Python SDK, CLI, MCP server, OpenAPI 3.1 spec. Install in one line, integrate in any language.</p>
+        <div class="hero-pill-row">
+            <span class="hero-pill">✓ Python SDK live on PyPI</span>
+            <span class="hero-pill">✓ MCP server live on PyPI</span>
+            <span class="hero-pill">✓ OpenAPI 3.1 spec live</span>
+        </div>
+    </div>
+</section>
+
+<main>
+    <div class="container">
+
+        <div class="toc">
+            <div class="toc-label">On this page</div>
+            <div class="toc-grid">
+                <a href="#quick-start">Quick start</a>
+                <a href="#python-sdk">Python SDK</a>
+                <a href="#cli">The <code>air</code> CLI</a>
+                <a href="#mcp">MCP server</a>
+                <a href="#openapi">OpenAPI / other languages</a>
+                <a href="#rest-api">REST API reference</a>
+                <a href="#troubleshooting">Troubleshooting</a>
+            </div>
+        </div>
+
+        <!-- ─── QUICK START ───────────────────────────────────────── -->
+        <div class="content-section" id="quick-start">
+            <h2>Quick start</h2>
+            <p>Five seconds from zero to talking to the registry:</p>
+<pre class="code"><span class="cm"># Install</span>
+<span class="kw">$</span> pip install agent-identity-registry
+
+<span class="cm"># Check it works</span>
+<span class="kw">$</span> air health
+  Registry AIR
+  status   ok
+  version  0.1.0</pre>
+            <p>That installs both the Python SDK and the <code>air</code> CLI tool. Requires Python 3.10+.</p>
+        </div>
+
+        <!-- ─── PYTHON SDK ────────────────────────────────────────── -->
+        <div class="content-section" id="python-sdk">
+            <h2>Python SDK</h2>
+            <p>Async client covering all 11 endpoints. Pydantic v2 models, typed exception hierarchy, full test coverage.</p>
+
+            <h3>Install</h3>
+<pre class="code"><span class="kw">$</span> pip install agent-identity-registry</pre>
+
+            <h3>Look up an agent</h3>
+<pre class="code"><span class="kw">import</span> asyncio
+<span class="kw">from</span> agent_identity_registry <span class="kw">import</span> AIRClient
+
+<span class="kw">async def</span> main():
+    <span class="kw">async with</span> AIRClient() <span class="kw">as</span> client:
+        agent = <span class="kw">await</span> client.get_agent(<span class="str">"AIR-7F3K-M9JQ-X2PL"</span>)
+        <span class="kw">print</span>(agent.name, agent.trust_score, agent.trust_grade)
+        <span class="cm"># → DataProcessor-v3 942 AAA</span>
+
+asyncio.run(main())</pre>
+
+            <h3>Register a new agent</h3>
+<pre class="code"><span class="kw">async with</span> AIRClient() <span class="kw">as</span> client:
+    result = <span class="kw">await</span> client.register_agent(
+        name=<span class="str">"WeatherBot"</span>,
+        description=<span class="str">"Forecasts for 70 cities"</span>,
+        public_key=<span class="str">"...ed25519-base64url..."</span>,   <span class="cm"># AIR mints a did:wba</span>
+        capabilities=[<span class="str">"weather"</span>, <span class="str">"forecast"</span>],
+        open_source=<span class="kw">True</span>,
+    )
+    <span class="kw">print</span>(result.air_id)        <span class="cm"># AIR-XXXX-XXXX-XXXX</span>
+    <span class="kw">print</span>(result.agent_secret)  <span class="cm"># SAVE THIS — shown once, required for updates</span></pre>
+
+            <div class="callout">
+                <strong>Repo:</strong> <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry-python" target="_blank" rel="noopener">github.com/AgentIdentityRegistry/agent-identity-registry-python</a> &middot;
+                <strong>PyPI:</strong> <a href="https://pypi.org/project/agent-identity-registry/" target="_blank" rel="noopener">pypi.org/project/agent-identity-registry</a>
+            </div>
+        </div>
+
+        <!-- ─── CLI ──────────────────────────────────────────────── -->
+        <div class="content-section" id="cli">
+            <h2>The <code>air</code> CLI</h2>
+            <p>Bundled with the SDK. Pretty terminal output by default; <code>--json</code> for scripting.</p>
+
+            <table class="cmd-table">
+                <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+                <tbody>
+                    <tr><td><code>air health</code></td><td>Registry liveness check</td></tr>
+                    <tr><td><code>air list</code></td><td>Sorted-by-trust-score table</td></tr>
+                    <tr><td><code>air lookup AIR-XXXX-XXXX-XXXX</code></td><td>Full agent record</td></tr>
+                    <tr><td><code>air score AIR-XXXX-XXXX-XXXX</code></td><td>5-component breakdown + bar chart</td></tr>
+                    <tr><td><code>air did-doc AIR-XXXX-XXXX-XXXX</code></td><td>W3C DID JSON-LD</td></tr>
+                    <tr><td><code>air check WeatherBot</code></td><td>Is this name taken?</td></tr>
+                    <tr><td><code>air register --name X --public-key K</code></td><td>Register a new agent</td></tr>
+                </tbody>
+            </table>
+
+            <h3>Flags (after the subcommand)</h3>
+            <ul>
+                <li><code>--json</code> — raw JSON output for scripting</li>
+                <li><code>--base-url URL</code> — override registry (or set <code>AIR_BASE_URL</code> env)</li>
+                <li><code>--no-color</code> — disable ANSI colors (or set <code>NO_COLOR=1</code>)</li>
+            </ul>
+
+            <h3>Example output</h3>
+<pre class="code"><span class="kw">$</span> air score AIR-7F3K-M9JQ-X2PL
+  AIR-7F3K-M9JQ-X2PL  Trust Score: 942 (AAA)
+
+  provenance          960  ███████████████████░  weight 0.25
+  behavioral          935  ██████████████████░░  weight 0.25
+  transparency        950  ███████████████████░  weight 0.20
+  security            920  ██████████████████░░  weight 0.15
+  peer_attestations   940  ██████████████████░░  weight 0.15</pre>
+        </div>
+
+        <!-- ─── MCP ──────────────────────────────────────────────── -->
+        <div class="content-section" id="mcp">
+            <h2>MCP server (Claude Code, Cursor, Codex)</h2>
+            <p>Drop AIR into any <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">Model Context Protocol</a>-aware LLM client. Six read-only tools, structured-error returns, ~250 lines.</p>
+
+            <h3>Install</h3>
+<pre class="code"><span class="kw">$</span> pip install air-mcp-server</pre>
+
+            <h3>Add to your MCP config</h3>
+            <p>For Claude Code, paste this into <code>~/.claude/mcp.json</code> or your project's <code>.mcp.json</code>:</p>
+<pre class="code">{
+  <span class="str">"mcpServers"</span>: {
+    <span class="str">"air"</span>: {
+      <span class="str">"command"</span>: <span class="str">"air-mcp-server"</span>
+    }
+  }
+}</pre>
+            <p>Same shape works for Cursor and Codex with their respective MCP config paths.</p>
+
+            <h3>What your LLM can do</h3>
+            <table class="cmd-table">
+                <thead><tr><th>Tool</th><th>Purpose</th></tr></thead>
+                <tbody>
+                    <tr><td><code>air_health</code></td><td>Registry liveness check</td></tr>
+                    <tr><td><code>air_list_agents</code></td><td>Paginated agent list</td></tr>
+                    <tr><td><code>air_lookup_agent</code></td><td>Full record by AIR ID</td></tr>
+                    <tr><td><code>air_trust_score</code></td><td>5-component breakdown</td></tr>
+                    <tr><td><code>air_did_document</code></td><td>W3C DID Core JSON-LD</td></tr>
+                    <tr><td><code>air_check_name</code></td><td>Name collision check</td></tr>
+                </tbody>
+            </table>
+
+            <p>Try saying to Claude Code: <em>"Look up agent AIR-7F3K-M9JQ-X2PL in AIR"</em> or <em>"What's the trust score for DataProcessor-v3?"</em> — it'll pick the right tool automatically.</p>
+
+            <div class="callout">
+                <strong>Repo:</strong> <a href="https://github.com/AgentIdentityRegistry/air-mcp-server" target="_blank" rel="noopener">github.com/AgentIdentityRegistry/air-mcp-server</a> &middot;
+                <strong>PyPI:</strong> <a href="https://pypi.org/project/air-mcp-server/" target="_blank" rel="noopener">pypi.org/project/air-mcp-server</a>
+            </div>
+
+            <div class="callout callout-warn">
+                <strong>v0.1 is read-only.</strong> Write operations (<code>register</code>, <code>update</code>) require an <code>agent_secret</code> that would cross the LLM context — a sharper design decision deferred to v0.2. Use the Python SDK or REST API directly for writes today.
+            </div>
+        </div>
+
+        <!-- ─── OPENAPI / OTHER LANGUAGES ───────────────────────── -->
+        <div class="content-section" id="openapi">
+            <h2>OpenAPI 3.1 spec / other languages</h2>
+            <p>The full API contract is published as an <a href="/api/v1/openapi.yaml" target="_blank">OpenAPI 3.1 document</a> — generate a native client in any language with standard tooling.</p>
+
+            <h3>TypeScript</h3>
+<pre class="code"><span class="kw">$</span> npx openapi-typescript \
+    https://agentidentityregistry.org/api/v1/openapi.yaml \
+    -o air.d.ts</pre>
+
+            <h3>Go</h3>
+<pre class="code"><span class="kw">$</span> go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
+<span class="kw">$</span> oapi-codegen -package air \
+    https://agentidentityregistry.org/api/v1/openapi.yaml &gt; air.go</pre>
+
+            <h3>Rust, Java, C#, PHP, Ruby, Kotlin, Swift</h3>
+            <p>Use <a href="https://openapi-generator.tech/docs/installation/" target="_blank" rel="noopener">openapi-generator-cli</a> with the appropriate <code>-g</code> flag:</p>
+<pre class="code"><span class="kw">$</span> openapi-generator-cli generate \
+    -i https://agentidentityregistry.org/api/v1/openapi.yaml \
+    -g rust \
+    -o air-rust-client</pre>
+            <p>Available generators: <code>rust</code>, <code>java</code>, <code>kotlin</code>, <code>swift5</code>, <code>csharp</code>, <code>php</code>, <code>ruby</code>, <code>elixir</code>, <code>dart</code>, and many more.</p>
+
+            <h3>Browse the spec visually</h3>
+            <p>Paste <code>https://agentidentityregistry.org/api/v1/openapi.yaml</code> into any of these:</p>
+            <ul>
+                <li><a href="https://editor.swagger.io" target="_blank" rel="noopener">Swagger Editor</a></li>
+                <li><a href="https://redocly.github.io/redoc/" target="_blank" rel="noopener">Redoc</a></li>
+                <li>Any IDE with OpenAPI plugin support (IntelliJ, VS Code, JetBrains)</li>
+            </ul>
+        </div>
+
+        <!-- ─── REST API REFERENCE ──────────────────────────────── -->
+        <div class="content-section" id="rest-api">
+            <h2>REST API reference</h2>
+            <p>The OpenAPI spec is the definitive reference, but here are the 11 endpoints at a glance:</p>
+
+            <h3>Public endpoints (no auth)</h3>
+            <table class="cmd-table">
+                <thead><tr><th>Method &amp; Path</th><th>Purpose</th></tr></thead>
+                <tbody>
+                    <tr><td><code>GET /api/v1/health</code></td><td>Registry liveness</td></tr>
+                    <tr><td><code>GET /api/v1/agents</code></td><td>List active agents, sorted by trust score</td></tr>
+                    <tr><td><code>GET /api/v1/agents/{air_id}</code></td><td>Full agent record</td></tr>
+                    <tr><td><code>GET /api/v1/agents/{air_id}/trust-score</code></td><td>5-component breakdown</td></tr>
+                    <tr><td><code>GET /api/v1/agents/{air_id}/did-document</code></td><td>W3C DID JSON-LD</td></tr>
+                    <tr><td><code>GET /api/v1/agents/check-name</code></td><td>Name collision check</td></tr>
+                    <tr><td><code>POST /api/v1/agents/register</code></td><td>Register a new agent (rate-limited 5/hour/IP)</td></tr>
+                    <tr><td><code>GET /api/v1/openapi.yaml</code></td><td>This spec</td></tr>
+                </tbody>
+            </table>
+
+            <h3>Agent-authenticated</h3>
+            <table class="cmd-table">
+                <thead><tr><th>Method &amp; Path</th><th>Auth</th></tr></thead>
+                <tbody>
+                    <tr><td><code>PUT /api/v1/agents/{air_id}</code></td><td><code>X-Agent-Secret</code> header (returned at registration)</td></tr>
+                </tbody>
+            </table>
+
+            <h3>Admin-only</h3>
+            <table class="cmd-table">
+                <thead><tr><th>Method &amp; Path</th><th>Auth</th></tr></thead>
+                <tbody>
+                    <tr><td><code>DELETE /api/v1/agents/{air_id}</code></td><td><code>X-Admin-Key</code></td></tr>
+                    <tr><td><code>GET /api/v1/admin/stats</code></td><td><code>X-Admin-Key</code></td></tr>
+                    <tr><td><code>GET /api/v1/admin/recent</code></td><td><code>X-Admin-Key</code></td></tr>
+                </tbody>
+            </table>
+
+            <h3>Try it with curl</h3>
+<pre class="code"><span class="kw">$</span> curl https://agentidentityregistry.org/api/v1/health
+<span class="str">{
+  "status": "ok",
+  "version": "0.1.0",
+  "registry": "AIR"
+}</span></pre>
+        </div>
+
+        <!-- ─── TROUBLESHOOTING ─────────────────────────────────── -->
+        <div class="content-section" id="troubleshooting">
+            <h2>Troubleshooting</h2>
+
+            <h3><code>air health</code> returns "Connection refused"</h3>
+            <p>Likely a local network/proxy issue. Verify reachability with <code>curl https://agentidentityregistry.org/api/v1/health</code> first.</p>
+
+            <h3>"Lost my agent_secret"</h3>
+            <p>The secret is shown <strong>only once</strong> at registration and stored only as a SHA-256 hash. There is no recovery path — re-register the agent to regain update access.</p>
+
+            <h3>Rate limited (429) on registration</h3>
+            <p>Registration is capped at <strong>5 successful registrations per hour per source IP</strong>. The 429 response includes <code>retry_after_seconds</code>. Use the Python SDK's <code>RateLimitedError.retry_after_seconds</code> to back off correctly.</p>
+
+            <h3>did:wba registration rejected</h3>
+            <p>did:wba creators must also supply a <code>public_key</code> (the DID itself doesn't embed one). Caller-supplied did:wba is validated strictly — IPv4 literals, localhost, and dotless hostnames are rejected by design.</p>
+
+            <h3>Generated OpenAPI client doesn't compile</h3>
+            <p>Most generators support OpenAPI 3.1; some older versions only support 3.0. If you hit issues with an older generator, the spec is mostly 3.0-compatible — open an issue and we'll add a backported version.</p>
+
+            <h3>Found a bug?</h3>
+            <p>File an issue on the relevant repo:</p>
+            <ul>
+                <li>SDK / CLI: <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry-python/issues" target="_blank" rel="noopener">agent-identity-registry-python/issues</a></li>
+                <li>MCP server: <a href="https://github.com/AgentIdentityRegistry/air-mcp-server/issues" target="_blank" rel="noopener">air-mcp-server/issues</a></li>
+                <li>Registry / API / spec: <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry/issues" target="_blank" rel="noopener">agent-identity-registry/issues</a></li>
+            </ul>
+        </div>
+
+    </div>
+</main>
+
+<footer>
+    <div class="container">
+        <div class="footer-brand">AIR</div>
+        <p>&copy; 2026 Agent Identity Registry Foundation. Specifications + code released under Apache 2.0.</p>
+        <p style="margin-top:0.5rem;"><a href="/">Home</a> &middot; <a href="/lookup">Lookup</a> &middot; <a href="/about">About</a> &middot; <a href="/governance">Governance</a> &middot; <a href="https://github.com/AgentIdentityRegistry" target="_blank" rel="noopener">GitHub Org</a> &middot; <a href="/contact">Contact</a></p>
+    </div>
+</footer>
+</body>
+</html>
