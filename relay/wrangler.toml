@@ -1,0 +1,40 @@
+# Cloudflare Worker config for the AIR A2A relay
+# (Phase 3 Stage 3b — see ~/SuperClaw/.omc/plans/bossclaw-v1-phase-3-a2a-cross-internet.md)
+#
+# Purpose: pure byte-pipe relay for cross-internet agent-to-agent messaging.
+# Per A2A spec Principle 3, the relay does NOT verify signatures —
+# clients verify on their own. The relay just queues, pulls, and acks
+# encrypted/signed envelopes.
+#
+# Endpoints (implementation owned by BossClaw):
+#   POST /inbox/{recipient_did}     accept + queue a message
+#   GET  /pull/{recipient_did}?since={cursor}   recipient polls
+#   POST /ack/{recipient_did}        recipient acks message receipt
+#   GET  /health                     liveness
+#
+# This file scaffolds only the infrastructure. The actual worker code
+# (envelope handling, D1 queries, KV nonce checks) lives in BossClaw's
+# repo and will be deployed here when ready.
+
+name = "air-relay"
+main = "src/index.js"
+compatibility_date = "2026-05-28"
+
+# Custom-domain route — Cloudflare auto-provisions DNS + SSL cert on first deploy.
+# Pattern has no /* suffix when custom_domain = true (the subdomain itself
+# attaches the worker to all paths under it).
+routes = [
+  { pattern = "relay.agentidentityregistry.org", custom_domain = true }
+]
+
+# D1 database for queued messages.
+# Schema design is BossClaw's call — leave empty until they add migrations.
+[[d1_databases]]
+binding       = "RELAY_DB"
+database_name = "air-relay"
+database_id   = "45226b47-a49a-475a-b84e-b207bd8a1a07"
+
+# KV for replay-nonce tracking (per-recipient seen-nonce set, TTL'd).
+[[kv_namespaces]]
+binding = "REPLAY_NONCE"
+id      = "a25e8f9119274c70a01c0cdedb1cb548"
