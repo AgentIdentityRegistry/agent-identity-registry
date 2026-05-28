@@ -1,0 +1,1154 @@
+openapi: 3.1.0
+
+info:
+  title: Agent Identity Registry API
+  summary: Public registry of AI agent identities + W3C-aligned trust infrastructure.
+  description: |
+    The Agent Identity Registry (AIR) is a public, W3C-aligned identity layer
+    for AI agents. Every registered agent receives:
+
+    - A stable identifier: `AIR-XXXX-XXXX-XXXX` (Crockford base32, 12 chars + 3 dashes)
+    - A W3C DID document with an Ed25519 public key (publicKeyMultibase format)
+    - A 5-component trust score (0-1000 weighted, grades AAA → C)
+    - An optional `did:wba:agentidentityregistry.org:agents:{air_id}` if the agent
+      doesn't bring its own DID
+
+    AIR is the **trust infrastructure** counterparties use BEFORE transacting
+    with an agent. The five trust dimensions (provenance, behavioral, transparency,
+    security, peer_attestations) give counterparties graduated confidence —
+    a 942 / AAA agent gets different treatment from a 540 / BB agent.
+
+    ## What this spec covers
+
+    All 11 endpoints currently exposed by the production registry at
+    `https://agentidentityregistry.org/api/v1/`. The spec is the single source of
+    truth: if behavior diverges from this document, the document is wrong and
+    should be filed as an issue.
+
+    ## What this spec does NOT cover
+
+    - Attestation issuance/verification (these happen client-side per the AIR
+      design — agents sign their own attestations using their DID, no round-trip)
+    - The Python SDK and MCP server (separate packages, see
+      `pip install agent-identity-registry`, `pip install air-mcp-server`)
+    - did:wba resolution semantics (see W3C did:wba draft spec)
+
+    ## Versioning
+
+    This spec follows the API version (currently `v0.1.0` per `/health`). All
+    paths are prefixed `/api/v1/` and that prefix is stable. Breaking changes
+    will bump to `/api/v2/`.
+
+    ## Rate limiting
+
+    Only `/agents/register` is rate-limited: **5 registrations per hour per
+    source IP**. All other endpoints are unrated as of v0.1.0.
+  version: "0.1.0"
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  contact:
+    name: Agent Identity Registry Foundation
+    url: https://agentidentityregistry.org
+  termsOfService: https://agentidentityregistry.org/terms
+
+servers:
+  - url: https://agentidentityregistry.org/api/v1
+    description: Production registry
+
+tags:
+  - name: public
+    description: |
+      Public, no-auth endpoints. Free to call from any client (browser, server,
+      AI agent, MCP tool). Cacheable per `Cache-Control` headers.
+  - name: agent-management
+    description: |
+      Endpoints that create or modify an agent record. `register` is
+      no-auth + rate-limited; `update` requires the per-agent secret
+      returned at registration.
+  - name: admin
+    description: |
+      Administrative endpoints. Require the `X-Admin-Key` header.
+      Not user-distributable; reserved for AIR operators.
+
+# Default: no authentication. Operations override per-endpoint as needed.
+security: []
+
+paths:
+
+  # ----------------------------------------------------------------
+  # PUBLIC ENDPOINTS
+  # ----------------------------------------------------------------
+
+  /health:
+    get:
+      summary: Registry liveness check
+      operationId: getHealth
+      tags: [public]
+      description: |
+        Returns a small JSON object confirming the registry is reachable
+        and reporting the deployed API version. Use this in monitoring
+        scripts and as a smoke test before invoking other endpoints.
+      responses:
+        "200":
+          description: Registry is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+              example:
+                status: ok
+                version: "0.1.0"
+                registry: AIR
+
+  /agents:
+    get:
+      summary: List active agents
+      operationId: listAgents
+      tags: [public]
+      description: |
+        Returns a paginated list of agents with `status = "active"`, sorted
+        by trust score descending. Includes summary fields only —
+        for full agent records use `/agents/{air_id}`.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Max agents to return (1-100). Defaults to 20.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          required: false
+          description: Pagination offset (0-based).
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Paginated list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentList"
+
+  /agents/check-name:
+    get:
+      summary: Check whether a name is already in use
+      operationId: checkName
+      tags: [public]
+      description: |
+        Convenience pre-registration check. The registry allows duplicate
+        names (each agent gets a unique AIR ID regardless), but callers
+        often want to pick a distinct name before registering.
+      parameters:
+        - name: name
+          in: query
+          required: true
+          description: Agent name to check (case-insensitive match).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+      responses:
+        "200":
+          description: Match result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NameCheck"
+        "400":
+          description: Missing `name` query parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /agents/{air_id}:
+    parameters:
+      - $ref: "#/components/parameters/AirId"
+
+    get:
+      summary: Get full agent record
+      operationId: getAgent
+      tags: [public]
+      description: |
+        Returns the complete agent record: creator info, capabilities,
+        transparency block, verification level, AND a copy of the current
+        trust score breakdown. Use this when you need everything; otherwise
+        prefer the lighter-weight `/agents/{air_id}/trust-score`.
+      responses:
+        "200":
+          description: Full agent record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+        "404":
+          description: No agent with that AIR ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error: Agent not found
+                air_id: AIR-NONE-NONE-NONE
+
+    put:
+      summary: Update an existing agent's metadata
+      operationId: updateAgent
+      tags: [agent-management]
+      security:
+        - AgentSecret: []
+      description: |
+        Updates the six mutable fields on an agent record. Other fields
+        (`name`, `creator_did`, `public_key`) are immutable after registration
+        — to change those, delete and re-register.
+
+        Authentication: send the `X-Agent-Secret` header containing the
+        plaintext secret returned at registration. The server compares its
+        SHA-256 hash in constant time against the stored hash.
+
+        Trust score is recalculated and returned with the new values.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRequest"
+            example:
+              description: Updated description after capability expansion
+              capabilities: [forecast, alerts, historical-data]
+              open_source: true
+              code_repository: https://github.com/example/weatherbot
+      responses:
+        "200":
+          description: Update applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateResult"
+        "400":
+          description: Invalid JSON body or no updatable fields supplied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Missing or invalid `X-Agent-Secret`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: No agent with that AIR ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+    delete:
+      summary: Soft-delete an agent (admin only)
+      operationId: deleteAgent
+      tags: [admin]
+      security:
+        - AdminKey: []
+      description: |
+        Marks the agent's `status = "deleted"`. The row is NOT removed —
+        data is retained for audit purposes. Once deleted, the AIR ID
+        cannot be re-issued (collision risk is negligible due to the
+        SHA-256 + Crockford base32 ID scheme).
+      responses:
+        "200":
+          description: Agent soft-deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResult"
+        "401":
+          description: Missing or invalid `X-Admin-Key`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: No agent with that AIR ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /agents/{air_id}/trust-score:
+    parameters:
+      - $ref: "#/components/parameters/AirId"
+    get:
+      summary: Get trust score breakdown (5 components + grade)
+      operationId: getTrustScore
+      tags: [public]
+      description: |
+        Returns the five weighted components of the trust score. The
+        components are computed at registration and recomputed on every
+        update. Weighting (constant across releases of v0.1.x):
+
+        - provenance       0.25
+        - behavioral       0.25
+        - transparency     0.20
+        - security         0.15
+        - peer_attestations 0.15
+
+        Grades: AAA (>= 950), AA (>= 850), A (>= 700), BBB (>= 600),
+        BB (>= 500), B (>= 400), C (< 400).
+      responses:
+        "200":
+          description: Trust score breakdown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrustScore"
+        "404":
+          description: No agent with that AIR ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /agents/{air_id}/did-document:
+    parameters:
+      - $ref: "#/components/parameters/AirId"
+    get:
+      summary: Get W3C DID Core JSON-LD document
+      operationId: getDidDocument
+      tags: [public]
+      description: |
+        Returns the agent's W3C DID Core document with `Ed25519VerificationKey2020`
+        format (publicKeyMultibase). Use this when verifying signatures the
+        agent produces — fetch the doc, extract `verificationMethod[0].publicKeyMultibase`,
+        decode the multibase + multicodec prefix, and verify against the signed payload.
+
+        The DID `id` is the AIR-minted `did:wba:agentidentityregistry.org:agents:{air_id}`.
+        If the agent registered with a separate `creator_did` (e.g. `did:key`,
+        `did:web`), that DID appears in `alsoKnownAs` per W3C convention.
+
+        Returns 404 if the agent registered without a `public_key` (no key
+        on file means no DID document to publish).
+
+        Cacheable at the edge for 5 minutes (`Cache-Control: public, max-age=300`).
+      responses:
+        "200":
+          description: DID document
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: public, max-age=300
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DidDocument"
+        "404":
+          description: |
+            Agent not found, OR agent has no `public_key` on file (no key
+            means no DID document to publish — register with a `public_key`
+            to enable resolution).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /agents/register:
+    post:
+      summary: Register a new agent
+      operationId: registerAgent
+      tags: [agent-management]
+      description: |
+        Creates a new agent record. Either `creator_did` OR `public_key` (or
+        both) must be provided.
+
+        ## Identity anchor options
+
+        | Provided | Behavior |
+        |----------|----------|
+        | `creator_did` only (e.g. `did:key:z...`) | AIR uses the supplied DID; no key bound to the AIR record |
+        | `public_key` only | AIR mints a `did:wba:agentidentityregistry.org:agents:{air_id}` and binds the key to it |
+        | Both (with `did:wba:` creator) | `creator_did` MUST be a valid did:wba and `public_key` is required (did:wba IDs don't embed keys) |
+        | Both (with non-did:wba creator) | Both are stored; the supplied creator_did is used as the agent's anchor |
+
+        ## Per-agent secret
+
+        Every successful registration returns an `agent_secret` (32-char hex).
+        This is shown **only once** and is required to later call `PUT /agents/{id}`
+        to update the record. Only its SHA-256 hash is stored server-side —
+        lost secrets are unrecoverable. Re-registration is the only path to
+        regain update access.
+
+        ## Rate limit
+
+        5 successful registrations per hour per source IP. The 429 response
+        includes `retry_after_seconds`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistrationRequest"
+            examples:
+              keyed_with_did_wba:
+                summary: did:wba creator with own domain
+                value:
+                  name: WeatherBot
+                  description: Weather forecasts for 70 cities
+                  creator_did: did:wba:example.com:agents:weatherbot
+                  public_key: VfL0K0Ujw9Vv45w9YBb7lXk4iWtZUcLOmCkOgJVKQpw
+                  creator_type: organization
+                  creator_name: Example Inc.
+                  capabilities: [weather, forecast]
+                  open_source: true
+                  code_repository: https://github.com/example/weatherbot
+              keyless_air_minted:
+                summary: No domain — AIR mints a did:wba
+                value:
+                  name: MyPersonalAssistant
+                  description: Tasks and reminders
+                  public_key: VfL0K0Ujw9Vv45w9YBb7lXk4iWtZUcLOmCkOgJVKQpw
+                  creator_type: individual
+                  creator_name: Jane Doe
+              did_key_creator:
+                summary: did:key creator (key embedded in DID)
+                value:
+                  name: CodeReviewer
+                  creator_did: did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH
+                  creator_type: individual
+      responses:
+        "201":
+          description: Agent registered. **Save `agent_secret` immediately.**
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationResult"
+        "400":
+          description: Bad input (missing required field, invalid public_key, invalid did:wba, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Extremely rare — AIR ID collision. Retry the registration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Rate limit hit (5 registrations per hour per source IP)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateLimitErrorEnvelope"
+
+  # ----------------------------------------------------------------
+  # ADMIN ENDPOINTS
+  # ----------------------------------------------------------------
+
+  /admin/stats:
+    get:
+      summary: Registry-wide statistics
+      operationId: getAdminStats
+      tags: [admin]
+      security:
+        - AdminKey: []
+      description: Aggregate counts + grade distribution.
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+        "401":
+          description: Missing or invalid `X-Admin-Key`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /admin/recent:
+    get:
+      summary: Most-recent registrations with full creator info
+      operationId: getAdminRecent
+      tags: [admin]
+      security:
+        - AdminKey: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Max items (1-100). Defaults to 20.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Recent registrations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminRecent"
+        "401":
+          description: Missing or invalid `X-Admin-Key`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  # ----------------------------------------------------------------
+  # META: this very spec
+  # ----------------------------------------------------------------
+
+  /openapi.yaml:
+    get:
+      summary: This OpenAPI spec (YAML)
+      operationId: getOpenApiYaml
+      tags: [public]
+      description: |
+        Returns this document. Useful for tooling discovery and client
+        generation (openapi-generator, Stoplight, Swagger UI, etc.).
+
+        CORS: `Access-Control-Allow-Origin: *` on this endpoint specifically,
+        so browser-based tools can fetch it from any origin.
+      responses:
+        "200":
+          description: This spec
+          content:
+            application/yaml:
+              schema:
+                type: string
+
+components:
+
+  parameters:
+    AirId:
+      name: air_id
+      in: path
+      required: true
+      description: AIR identifier in canonical format `AIR-XXXX-XXXX-XXXX` (Crockford base32, uppercase).
+      schema:
+        type: string
+        pattern: ^AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$
+        examples:
+          - AIR-7F3K-M9JQ-X2PL
+          - AIR-WBA1-DEMO-AGT0
+
+  securitySchemes:
+    AgentSecret:
+      type: apiKey
+      in: header
+      name: X-Agent-Secret
+      description: |
+        The 32-character hex secret returned at registration. Required for
+        `PUT /agents/{air_id}`. Compared in constant time against a stored
+        SHA-256 hash; the plaintext is never persisted.
+    AdminKey:
+      type: apiKey
+      in: header
+      name: X-Admin-Key
+      description: |
+        AIR operator-only admin key. Required for `DELETE /agents/{air_id}`,
+        `GET /admin/stats`, `GET /admin/recent`. Not user-distributable.
+
+  schemas:
+
+    # ---------- HEALTH ----------
+
+    Health:
+      type: object
+      required: [status, version, registry]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        version:
+          type: string
+          description: API version (semver, e.g. "0.1.0")
+        registry:
+          type: string
+          enum: [AIR]
+
+    # ---------- TRUST SCORE ----------
+
+    TrustComponents:
+      type: object
+      description: The five weighted dimensions of an AIR trust score.
+      required: [provenance, behavioral, transparency, security, peer_attestations]
+      properties:
+        provenance:
+          type: integer
+          minimum: 0
+          maximum: 1000
+          description: Completeness + verifiability of creator info.
+        behavioral:
+          type: integer
+          minimum: 0
+          maximum: 1000
+          description: Track record. Currently a flat 500 for all agents (will incorporate signed action history in a future release).
+        transparency:
+          type: integer
+          minimum: 0
+          maximum: 1000
+          description: Open source + code repo + documentation present.
+        security:
+          type: integer
+          minimum: 0
+          maximum: 1000
+          description: Security certifications on file.
+        peer_attestations:
+          type: integer
+          minimum: 0
+          maximum: 1000
+          description: Endorsements from other registered agents. Currently a flat 300 baseline.
+
+    TrustScore:
+      type: object
+      required: [air_id, total_score, grade, components, calculated_at]
+      properties:
+        air_id:
+          type: string
+          pattern: ^AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$
+        total_score:
+          type: integer
+          minimum: 0
+          maximum: 1000
+          description: Weighted total of the five components.
+        grade:
+          type: string
+          enum: [AAA, AA, A, BBB, BB, B, C]
+        components:
+          $ref: "#/components/schemas/TrustComponents"
+        calculated_at:
+          type: string
+          format: date-time
+
+    # ---------- AGENT RECORDS ----------
+
+    Creator:
+      type: object
+      description: |
+        Identity anchor for the agent. At least one of `did` or `public_key`
+        is present after registration.
+      properties:
+        did:
+          type: [string, "null"]
+          description: |
+            The agent's DID. `did:wba:`, `did:key:`, `did:web:`, etc. If the
+            agent registered without a creator_did but with a public_key,
+            this contains the AIR-minted `did:wba:agentidentityregistry.org:agents:{air_id}`.
+        name:
+          type: [string, "null"]
+        type:
+          type: [string, "null"]
+          enum: [individual, organization, null]
+        public_key:
+          type: [string, "null"]
+          description: Ed25519 public key, base64url encoded (43 or 44 chars). Null if registered without one.
+
+    TransparencyBlock:
+      type: object
+      properties:
+        open_source:
+          type: boolean
+        code_repository:
+          type: [string, "null"]
+          format: uri
+        documentation_url:
+          type: [string, "null"]
+          format: uri
+
+    SecurityBlock:
+      type: object
+      properties:
+        certifications:
+          type: array
+          items:
+            type: string
+
+    Agent:
+      type: object
+      description: Full agent record returned by `GET /agents/{air_id}`.
+      required:
+        [air_id, name, creator, capabilities, security, transparency, verified,
+         verification_level, is_demo, status, created, updated]
+      properties:
+        "@context":
+          type: string
+          description: JSON-LD context. Currently `https://agentidentityregistry.org/v1`.
+        type:
+          type: string
+          description: JSON-LD type. Currently `AgentIdentity`.
+        air_id:
+          type: string
+          pattern: ^AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$
+        name:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
+        creator:
+          $ref: "#/components/schemas/Creator"
+        capabilities:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        security:
+          $ref: "#/components/schemas/SecurityBlock"
+        transparency:
+          $ref: "#/components/schemas/TransparencyBlock"
+        verified:
+          type: boolean
+        verification_level:
+          type: string
+          examples: [self-verified, enhanced, kyc-verified]
+        is_demo:
+          type: boolean
+        status:
+          type: string
+          enum: [active, deleted]
+        created:
+          type: string
+          format: date-time
+        updated:
+          type: string
+          format: date-time
+        trust_score:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 1000
+        trust_grade:
+          type: [string, "null"]
+          enum: [AAA, AA, A, BBB, BB, B, C, null]
+        components:
+          oneOf:
+            - $ref: "#/components/schemas/TrustComponents"
+            - type: "null"
+
+    AgentSummary:
+      type: object
+      description: Compact row in the `/agents` list response.
+      required: [air_id, name, verified, verification_level, is_demo, created]
+      properties:
+        air_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        verified:
+          type: boolean
+        verification_level:
+          type: string
+        is_demo:
+          type: boolean
+        trust_score:
+          type: [integer, "null"]
+        trust_grade:
+          type: [string, "null"]
+        created:
+          type: string
+          format: date-time
+
+    AgentList:
+      type: object
+      required: [agents, total, limit, offset]
+      properties:
+        agents:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentSummary"
+        total:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    # ---------- DID DOCUMENT (W3C) ----------
+
+    DidVerificationMethod:
+      type: object
+      required: [id, type, controller, publicKeyMultibase]
+      properties:
+        id:
+          type: string
+          description: Fragment-suffixed DID (e.g. `did:wba:.../#key-1`).
+        type:
+          type: string
+          enum: [Ed25519VerificationKey2020]
+        controller:
+          type: string
+        publicKeyMultibase:
+          type: string
+          description: Multibase-encoded public key. Prefix `z` (base58btc) + multicodec `0xed01` for Ed25519. Decodes to 32 raw key bytes.
+
+    DidService:
+      type: object
+      required: [id, type, serviceEndpoint]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          examples: [AIRTrustScore]
+        serviceEndpoint:
+          type: string
+          format: uri
+
+    DidDocument:
+      type: object
+      description: W3C DID Core JSON-LD document. Note camelCase wire format per the spec.
+      required: ["@context", id, verificationMethod, authentication, assertionMethod]
+      properties:
+        "@context":
+          type: array
+          items:
+            type: string
+            format: uri
+          examples:
+            - - https://www.w3.org/ns/did/v1
+              - https://w3id.org/security/suites/ed25519-2020/v1
+        id:
+          type: string
+          description: AIR-minted `did:wba:agentidentityregistry.org:agents:{air_id}`.
+        alsoKnownAs:
+          type: array
+          description: Other DIDs the agent claims (e.g. their own did:key or did:web). Omitted if absent.
+          items:
+            type: string
+        verificationMethod:
+          type: array
+          items:
+            $ref: "#/components/schemas/DidVerificationMethod"
+        authentication:
+          type: array
+          items:
+            type: string
+        assertionMethod:
+          type: array
+          items:
+            type: string
+        service:
+          type: array
+          items:
+            $ref: "#/components/schemas/DidService"
+
+    # ---------- NAME CHECK ----------
+
+    ExistingAgent:
+      type: object
+      required: [air_id, name]
+      properties:
+        air_id:
+          type: string
+        name:
+          type: string
+
+    NameCheck:
+      type: object
+      required: [name, exists, count, existing_agents]
+      properties:
+        name:
+          type: string
+        exists:
+          type: boolean
+        count:
+          type: integer
+          minimum: 0
+        existing_agents:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExistingAgent"
+          maxItems: 5
+
+    # ---------- REGISTRATION ----------
+
+    RegistrationRequest:
+      type: object
+      required: [name]
+      description: |
+        At least one of `creator_did` or `public_key` is required. See the
+        operation description for the identity-anchor matrix.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
+        creator_did:
+          type: string
+          maxLength: 500
+          description: |
+            Pre-existing DID controlled by the caller. May be `did:wba:`,
+            `did:key:`, `did:web:`, etc. If absent, AIR mints a `did:wba`.
+        public_key:
+          type: string
+          minLength: 43
+          maxLength: 44
+          description: Ed25519 public key, base64url encoded (32 bytes = 43 chars unpadded or 44 padded). Required when `creator_did` is a `did:wba`.
+        creator_name:
+          type: string
+          maxLength: 200
+        creator_type:
+          type: string
+          enum: [individual, organization]
+          default: individual
+        capabilities:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        security_certifications:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+        open_source:
+          type: boolean
+          default: false
+        code_repository:
+          type: string
+          format: uri
+          maxLength: 500
+        documentation_url:
+          type: string
+          format: uri
+          maxLength: 500
+
+    RegistrationResult:
+      type: object
+      required:
+        [air_id, name, creator_did, status, verification_level, trust_score,
+         trust_grade, created, agent_secret, agent_secret_note, message]
+      properties:
+        air_id:
+          type: string
+        name:
+          type: string
+        creator_did:
+          type: string
+        air_minted_did:
+          type: boolean
+          description: True if AIR generated the did:wba (caller did not supply one). Omitted otherwise.
+        status:
+          type: string
+          enum: [active]
+        verification_level:
+          type: string
+          enum: [self-verified]
+        trust_score:
+          type: integer
+        trust_grade:
+          type: string
+        created:
+          type: string
+          format: date-time
+        public_key:
+          type: string
+          description: Echoed back when supplied. Omitted when not provided.
+        did_wba_resolved:
+          type: boolean
+          description: |
+            True if AIR was able to fetch the did:wba document during registration.
+            False if not (resolution failed but did:wba format was valid — registration still succeeded).
+            Omitted entirely for non-did:wba creators.
+        agent_secret:
+          type: string
+          minLength: 32
+          maxLength: 32
+          description: |
+            32-char hex secret. **Shown only once.** Required for `PUT /agents/{air_id}`.
+            Lost secrets are unrecoverable — re-register if you need update access back.
+        agent_secret_note:
+          type: string
+          description: Plain-English reminder about storing the secret.
+        warnings:
+          type: array
+          items:
+            type: string
+          description: Non-blocking warnings (e.g. "duplicate name"). Omitted when none.
+        message:
+          type: string
+
+    # ---------- UPDATE ----------
+
+    UpdateRequest:
+      type: object
+      description: |
+        All fields optional. Only the six listed here are mutable.
+        Supplying an empty body returns 400.
+      properties:
+        description:
+          type: string
+          maxLength: 2000
+        capabilities:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        security_certifications:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+        open_source:
+          type: boolean
+        code_repository:
+          type: string
+          format: uri
+          maxLength: 500
+        documentation_url:
+          type: string
+          format: uri
+          maxLength: 500
+
+    UpdateResult:
+      type: object
+      required: [air_id, updated_fields, trust_score, trust_grade, updated, message]
+      properties:
+        air_id:
+          type: string
+        updated_fields:
+          type: integer
+          minimum: 1
+        trust_score:
+          type: integer
+        trust_grade:
+          type: string
+        updated:
+          type: string
+          format: date-time
+        message:
+          type: string
+
+    # ---------- DELETE ----------
+
+    DeleteResult:
+      type: object
+      required: [air_id, name, status, deleted_at, message]
+      properties:
+        air_id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum: [deleted]
+        deleted_at:
+          type: string
+          format: date-time
+        message:
+          type: string
+
+    # ---------- ADMIN ----------
+
+    AdminStats:
+      type: object
+      required:
+        [total_agents, real_agents, demo_agents, verified, unverified,
+         registered_last_7_days, grade_distribution]
+      properties:
+        total_agents:
+          type: integer
+        real_agents:
+          type: integer
+        demo_agents:
+          type: integer
+        verified:
+          type: integer
+        unverified:
+          type: integer
+        registered_last_7_days:
+          type: integer
+        average_trust_score:
+          type: [integer, "null"]
+        grade_distribution:
+          type: object
+          description: Map of grade (AAA, AA, A, ...) → count of active agents at that grade.
+          additionalProperties:
+            type: integer
+
+    AdminRecentItem:
+      type: object
+      required: [air_id, name, creator_name, verified, is_demo, verification_level, registered]
+      properties:
+        air_id:
+          type: string
+        name:
+          type: string
+        creator_did:
+          type: [string, "null"]
+        creator_name:
+          type: string
+        creator_type:
+          type: [string, "null"]
+        verified:
+          type: boolean
+        is_demo:
+          type: boolean
+        verification_level:
+          type: string
+        trust_score:
+          type: [integer, "null"]
+        trust_grade:
+          type: [string, "null"]
+        registered:
+          type: string
+          format: date-time
+
+    AdminRecent:
+      type: object
+      required: [recent_registrations, count]
+      properties:
+        recent_registrations:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminRecentItem"
+        count:
+          type: integer
+
+    # ---------- ERRORS ----------
+
+    ErrorEnvelope:
+      type: object
+      description: Common error response envelope. Not every field appears on every error.
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Short human-readable error category.
+        message:
+          type: string
+          description: Optional longer-form detail.
+        air_id:
+          type: string
+          description: Echoed for endpoint-specific errors (e.g. 404 lookup).
+        hint:
+          type: string
+          description: Actionable next step, when one applies.
+
+    RateLimitErrorEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/ErrorEnvelope"
+        - type: object
+          required: [retry_after_seconds]
+          properties:
+            retry_after_seconds:
+              type: integer
+              minimum: 0
+              description: Seconds the caller should wait before retrying.

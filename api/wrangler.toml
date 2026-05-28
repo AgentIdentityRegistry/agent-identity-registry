@@ -1,0 +1,36 @@
+name = "air-registry-api"
+main = "src/index.js"
+compatibility_date = "2024-12-01"
+
+# Route on the main domain
+routes = [
+  { pattern = "agentidentityregistry.org/api/*", zone_name = "agentidentityregistry.org" }
+]
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "air-registry"
+database_id = "8cbb5e6d-326b-474a-a571-af1f25e3dd6a"
+
+# Treat *.yaml files as text modules so the worker can do:
+#   import OPENAPI_YAML from "../openapi.yaml";
+# At build time wrangler bundles the file contents as a string export.
+[[rules]]
+type = "Text"
+globs = ["**/*.yaml"]
+fallthrough = true
+
+# Scheduled triggers — Workers Cron fires the `scheduled()` export on these
+# crontab expressions. Times are UTC. Add an entry, redeploy, and Cloudflare
+# handles the scheduling forever — no laptop, no extra infrastructure.
+#
+# Current schedule:
+#   "0 3 * * SUN" — every Sunday at 3:00 UTC. Walks all did:wba-anchored agents
+#                   and re-resolves their did.json so the registry's freshness
+#                   status doesn't go stale post-registration.
+# Note: Cloudflare's cron parser is pickier than POSIX — use named days (SUN,
+# MON, ...) rather than numeric DoW (0, 1, ...). "0 3 * * 0" gets rejected with
+# code 10100 even though it's valid POSIX cron.
+[triggers]
+crons = ["0 3 * * SUN"]
