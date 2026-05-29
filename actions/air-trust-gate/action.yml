@@ -1,0 +1,62 @@
+name: "AIR Trust Gate"
+description: "Gate a workflow on an AI agent's AIR trust score, grade, and Verified status."
+author: "Agent Identity Registry Foundation"
+
+branding:
+  icon: "shield"
+  color: "blue"
+
+inputs:
+  air-id:
+    description: "The AIR ID to check, e.g. AIR-XXXX-XXXX-XXXX."
+    required: true
+  min-trust-score:
+    description: "Minimum acceptable trust score (0-1000). Empty string = don't check score."
+    required: false
+    default: ""
+  min-grade:
+    description: "Minimum acceptable trust grade (one of AAA, AA, A, BBB, BB, B, C). Empty = don't check grade."
+    required: false
+    default: ""
+  require-verified:
+    description: "If 'true', the agent must hold AIR Verified status (attestation-based)."
+    required: false
+    default: "false"
+  api-base-url:
+    description: "AIR API base URL. Override to test against a staging registry."
+    required: false
+    default: "https://agentidentityregistry.org"
+  fail-level:
+    description: "'error' fails the check when the gate is missed; 'warn' annotates but lets the job pass."
+    required: false
+    default: "error"
+
+outputs:
+  trust-score:
+    description: "The agent's current trust score (0-1000), or empty if the agent was not found."
+    value: ${{ steps.gate.outputs.trust-score }}
+  trust-grade:
+    description: "The agent's current trust grade (AAA..C), or empty if not found."
+    value: ${{ steps.gate.outputs.trust-grade }}
+  verified:
+    description: "'true' if the agent currently holds AIR Verified status, else 'false'."
+    value: ${{ steps.gate.outputs.verified }}
+  passed:
+    description: "'true' if every requested condition passed, else 'false'."
+    value: ${{ steps.gate.outputs.passed }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: gate
+      shell: bash
+      # Inputs are passed via env (never interpolated into the script body) so a
+      # crafted air-id can't inject shell. gate.sh reads them from the environment.
+      env:
+        AIR_ID: ${{ inputs.air-id }}
+        MIN_TRUST_SCORE: ${{ inputs.min-trust-score }}
+        MIN_GRADE: ${{ inputs.min-grade }}
+        REQUIRE_VERIFIED: ${{ inputs.require-verified }}
+        API_BASE_URL: ${{ inputs.api-base-url }}
+        FAIL_LEVEL: ${{ inputs.fail-level }}
+      run: "${{ github.action_path }}/gate.sh"

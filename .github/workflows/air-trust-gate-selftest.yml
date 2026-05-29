@@ -1,0 +1,52 @@
+name: air-trust-gate selftest
+
+# Dogfoods the composite action against the live demo agent so a regression in
+# gate.sh or action.yml fails CI. Runs when the action changes, and on demand.
+on:
+  push:
+    paths:
+      - "actions/air-trust-gate/**"
+      - ".github/workflows/air-trust-gate-selftest.yml"
+  workflow_dispatch:
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # Pass case: the demo agent scores 712 (grade A), so >=700 must pass.
+      - id: pass
+        uses: ./actions/air-trust-gate
+        with:
+          air-id: AIR-WBA1-DEMO-AGT0
+          min-trust-score: "700"
+          min-grade: "A"
+
+      # Action outputs are passed via env (never interpolated into the script
+      # body) per GitHub's workflow-injection guidance.
+      - name: Assert pass-case outputs
+        env:
+          PASSED: ${{ steps.pass.outputs.passed }}
+          SCORE: ${{ steps.pass.outputs.trust-score }}
+          GRADE: ${{ steps.pass.outputs.trust-grade }}
+        run: |
+          test "$PASSED" = "true" || { echo "expected passed=true, got '$PASSED'"; exit 1; }
+          test -n "$SCORE" || { echo "expected a non-empty trust-score"; exit 1; }
+          echo "Pass case OK: score=$SCORE grade=$GRADE"
+
+      # Negative case: an impossible threshold under warn must NOT fail the job,
+      # but must report passed=false. Proves the gate actually evaluates.
+      - id: miss
+        uses: ./actions/air-trust-gate
+        with:
+          air-id: AIR-WBA1-DEMO-AGT0
+          min-trust-score: "999"
+          fail-level: "warn"
+
+      - name: Assert miss-case reports failure without failing the job
+        env:
+          PASSED: ${{ steps.miss.outputs.passed }}
+        run: |
+          test "$PASSED" = "false" || { echo "expected passed=false on warn miss, got '$PASSED'"; exit 1; }
+          echo "Warn-miss case OK: passed=$PASSED"
