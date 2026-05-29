@@ -20,7 +20,7 @@ DIST="$ROOT/dist"
 cd "$ROOT"
 
 # Files & directories that ARE the public website.
-PAGES=(index.html 404.html sitemap.xml robots.txt)
+PAGES=(index.html 404.html sitemap.xml robots.txt BingSiteAuth.xml)
 DIRS=(assets about admin blog contact developers governance lookup register specs)
 
 echo "── Staging dist/ ─────────────────────────────"
