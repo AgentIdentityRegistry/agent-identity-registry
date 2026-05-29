@@ -49,3 +49,4 @@ coverage
 
 # Pages build output (created by scripts/deploy-site.sh)
 dist/
+.gstack/
