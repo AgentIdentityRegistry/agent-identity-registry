@@ -127,6 +127,7 @@
             <span class="hero-pill">✓ Python SDK live on PyPI</span>
             <span class="hero-pill">✓ MCP server live on PyPI</span>
             <span class="hero-pill">✓ OpenAPI 3.1 spec live</span>
+            <span class="hero-pill">✓ GitHub Action + badges</span>
         </div>
     </div>
 </section>
@@ -143,6 +144,7 @@
                 <a href="#mcp">MCP server</a>
                 <a href="#openapi">OpenAPI / other languages</a>
                 <a href="#rest-api">REST API reference</a>
+                <a href="#trust-badges">Trust badges &amp; CI</a>
                 <a href="#troubleshooting">Troubleshooting</a>
             </div>
         </div>
@@ -357,6 +359,28 @@ asyncio.run(main())</pre>
   "version": "0.1.0",
   "registry": "AIR"
 }</span></pre>
+        </div>
+
+        <!-- ─── TRUST BADGES & CI GATE ──────────────────────────── -->
+        <div class="content-section" id="trust-badges">
+            <h2>Trust badges &amp; CI gating</h2>
+            <p>Show an agent's live AIR status in your README, and fail CI when a dependency agent's trust slips. Both read public endpoints — no auth, no SDK required.</p>
+
+            <h3>README badge</h3>
+            <p>A Codecov-style badge that refreshes automatically (60s cache) — green when <strong>Verified</strong>, blue with the trust score otherwise.</p>
+<pre class="code"><span class="cm">&lt;!-- Markdown --&gt;</span>
+[![AIR Trust](https://agentidentityregistry.org/api/v1/agents/AIR-XXXX-XXXX-XXXX/badge.svg)](https://agentidentityregistry.org/lookup/?id=AIR-XXXX-XXXX-XXXX)</pre>
+            <p>Live example: <img src="https://agentidentityregistry.org/api/v1/agents/AIR-WBA1-DEMO-AGT0/badge.svg" alt="Example AIR trust badge" style="vertical-align:middle"></p>
+
+            <h3>GitHub Action — <code>air-trust-gate</code></h3>
+            <p>Gate a workflow on an agent's trust score, grade, or Verified status. Composite action — no build step, no tokens.</p>
+<pre class="code"><span class="cm"># .github/workflows/your-workflow.yml</span>
+- <span class="kw">uses:</span> AgentIdentityRegistry/agent-identity-registry/actions/air-trust-gate@main
+  <span class="kw">with:</span>
+    air-id: AIR-XXXX-XXXX-XXXX
+    min-trust-score: <span class="str">"700"</span>
+    require-verified: <span class="str">"true"</span></pre>
+            <p>The step fails the job if the agent scores below 700 or isn't Verified; set <code>fail-level: "warn"</code> to annotate without failing. Full inputs and outputs are in the <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry/tree/main/actions/air-trust-gate">action README</a>.</p>
         </div>
 
         <!-- ─── TROUBLESHOOTING ─────────────────────────────────── -->
