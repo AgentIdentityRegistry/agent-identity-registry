@@ -528,6 +528,270 @@ paths:
               schema:
                 type: string
 
+  /agents/{air_id}/attestations:
+    parameters:
+      - $ref: "#/components/parameters/AirId"
+    get:
+      summary: List a subject's attestations (public audit trail)
+      operationId: listAttestations
+      tags: [public, attestations]
+      description: |
+        Returns every attestation made about this agent — active and revoked
+        (flagged via `is_active`) — plus the subject's current `verified_status`.
+        The full trail is public by design (Lock 6 of AIR Verified).
+      responses:
+        "200":
+          description: Attestation list + verified status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttestationList"
+        "404":
+          description: No agent with that AIR ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    post:
+      summary: Create an attestation (vouch for this agent)
+      operationId: createAttestation
+      tags: [attestations]
+      security:
+        - AgentSecret: []
+      description: |
+        Record a cryptographically signed attestation about this agent. The
+        `X-Agent-Secret` header is the ATTESTER's secret. The signature must be
+        Ed25519 over the JCS-canonical bytes of `{attester_air_id,
+        attestation_type, signed_at, statement, subject_air_id}`, multibase-
+        encoded (`z` + base58btc). Six locks gate whether it counts toward
+        Verified: live did:wba + signature (1), distinct WHOIS root (2), tenure
+        ≥30d + trust ≥50 (3), weighting (4), rate limit ≤10/7d (5), audit (6).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttestationRequest"
+      responses:
+        "201":
+          description: Attestation recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttestationResult"
+        "400":
+          description: Invalid input or signature verification failed (Lock 1)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Missing or invalid attester `X-Agent-Secret`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Attester not eligible (Locks 1, 3, 5)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Subject agent not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: WHOIS-root distinctness conflict (Lock 2)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /agents/{air_id}/attestations/{attestation_id}:
+    parameters:
+      - $ref: "#/components/parameters/AirId"
+      - name: attestation_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    delete:
+      summary: Revoke an attestation (original attester only)
+      operationId: revokeAttestation
+      tags: [attestations]
+      security:
+        - AgentSecret: []
+      description: |
+        Soft-deletes an attestation. `X-Agent-Secret` must be the ORIGINAL
+        attester's secret. Returns the subject's recomputed `verified_status`.
+      responses:
+        "200":
+          description: Attestation revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevokeResult"
+        "400":
+          description: Invalid attestation_id, or it doesn't belong to this subject
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Missing/invalid secret (must be the original attester's)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Attestation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Attestation already revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /attestations/recent:
+    get:
+      summary: Recent attestations firehose (public)
+      operationId: recentAttestations
+      tags: [public, attestations]
+      description: |
+        Public firehose of recent active attestations across the registry.
+        Useful for live dashboards and Sybil-ring spotting.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 200
+      responses:
+        "200":
+          description: Recent attestations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecentAttestations"
+
+  /agents/{air_id}/badge.svg:
+    parameters:
+      - $ref: "#/components/parameters/AirId"
+    get:
+      summary: Trust/Verified status badge (SVG)
+      operationId: getBadgeSvg
+      tags: [public]
+      description: |
+        Codecov-style SVG badge: green "Verified ✓" when the agent holds AIR
+        Verified status, blue with the trust score otherwise, gray if unknown.
+        60-second edge cache; CORS-open for embedding in any README.
+      responses:
+        "200":
+          description: SVG badge
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: public, max-age=60
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+
+  /agents/{air_id}/graph:
+    parameters:
+      - $ref: "#/components/parameters/AirId"
+    get:
+      summary: 1-hop attestation ego graph
+      operationId: getAgentGraph
+      tags: [public, graph]
+      description: |
+        The agent's direct trust edges: `inbound` (who vouches for this agent)
+        and `outbound` (who this agent vouches for). Active edges only.
+      responses:
+        "200":
+          description: Ego graph
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentGraph"
+        "404":
+          description: No agent with that AIR ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /agents/{air_id}/dependents:
+    parameters:
+      - $ref: "#/components/parameters/AirId"
+    get:
+      summary: Blast radius — transitive dependents
+      operationId: getDependents
+      tags: [public, graph]
+      description: |
+        The transitive set of agents that depend (directly or via a chain) on
+        this agent, following `dependency`-type edges in reverse. Answers "if
+        this agent is compromised, who is affected?". `truncated` flags when the
+        node cap clipped the result.
+      parameters:
+        - name: depth
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 6
+            minimum: 1
+            maximum: 10
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 500
+            minimum: 1
+            maximum: 1000
+      responses:
+        "200":
+          description: Dependent set with per-node hop depth
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dependents"
+        "404":
+          description: No agent with that AIR ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /graph/stats:
+    get:
+      summary: Global trust-graph statistics
+      operationId: getGraphStats
+      tags: [public, graph]
+      description: |
+        Registry-wide graph summary: node + edge counts, edges by attestation
+        type, and the most-attested agents + most-active attesters.
+      responses:
+        "200":
+          description: Graph stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GraphStats"
+
 components:
 
   parameters:
@@ -735,6 +999,8 @@ components:
           oneOf:
             - $ref: "#/components/schemas/TrustComponents"
             - type: "null"
+        verification_status:
+          $ref: "#/components/schemas/VerificationStatus"
 
     AgentSummary:
       type: object
@@ -1178,3 +1444,294 @@ components:
               type: integer
               minimum: 0
               description: Seconds the caller should wait before retrying.
+
+    VerifiedStatus:
+      type: object
+      description: Attestation-derived status embedded in attestation write/list responses.
+      required: [verified, verification_score, distinct_whois_roots, attestation_count]
+      properties:
+        verified:
+          type: boolean
+          description: True when verification_score >= 300 AND distinct_whois_roots >= 3.
+        verification_score:
+          type: integer
+          description: Sum of attester_trust_at_issue * tenure_multiplier_at_issue over active attestations.
+        distinct_whois_roots:
+          type: integer
+        attestation_count:
+          type: integer
+
+    VerificationStatus:
+      type: object
+      description: Display-oriented Verified breakdown on GET /agents/{air_id} (adds thresholds).
+      required:
+        [verified, score, score_required, attestation_count, distinct_whois_roots,
+         distinct_whois_roots_required]
+      properties:
+        verified:
+          type: boolean
+        score:
+          type: integer
+        score_required:
+          type: integer
+          description: Currently 300.
+        attestation_count:
+          type: integer
+        distinct_whois_roots:
+          type: integer
+        distinct_whois_roots_required:
+          type: integer
+          description: Currently 3.
+
+    AttestationType:
+      type: string
+      enum: [identity_verification, operator_confirmation, dependency, safety_review]
+      description: |
+        identity_verification — claimed identity is real.
+        operator_confirmation — operated by its claimed creator.
+        dependency — attester depends on subject in production.
+        safety_review — attester reviewed and trusts the subject's safety.
+
+    AttestationRequest:
+      type: object
+      description: Body for POST /agents/{air_id}/attestations.
+      required: [attester_air_id, attestation_type, signed_at, signature_multibase]
+      properties:
+        attester_air_id:
+          type: string
+          pattern: ^AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$
+        attestation_type:
+          $ref: "#/components/schemas/AttestationType"
+        signed_at:
+          type: string
+          format: date-time
+          description: ISO-8601 timestamp; must equal the value inside the signed payload.
+        signature_multibase:
+          type: string
+          description: '"z" + base58btc of the 64-byte Ed25519 signature over the JCS-canonical payload.'
+        statement:
+          type: string
+          default: ""
+          description: Optional free-form note; always part of the signed payload.
+
+    Attestation:
+      type: object
+      description: One row in a subject's attestation list (active or revoked).
+      properties:
+        id:
+          type: integer
+        attester_air_id:
+          type: string
+        attester_whois_root:
+          type: [string, "null"]
+        attestation_type:
+          $ref: "#/components/schemas/AttestationType"
+        statement:
+          type: string
+        signed_payload:
+          type: string
+          description: The exact JCS-canonical bytes that were signed (for independent re-verification).
+        signature_multibase:
+          type: string
+        signed_at:
+          type: string
+          format: date-time
+        attester_trust_at_issue:
+          type: integer
+        tenure_multiplier_at_issue:
+          type: number
+        weight:
+          type: number
+          description: attester_trust_at_issue * tenure_multiplier_at_issue.
+        revoked_at:
+          type: [string, "null"]
+          format: date-time
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    AttestationResult:
+      type: object
+      description: 201 response from POST /agents/{air_id}/attestations.
+      properties:
+        attestation_id:
+          type: integer
+        subject_air_id:
+          type: string
+        attester_air_id:
+          type: string
+        attestation_type:
+          $ref: "#/components/schemas/AttestationType"
+        statement:
+          type: string
+        signed_at:
+          type: string
+          format: date-time
+        attester_whois_root:
+          type: [string, "null"]
+        attester_trust_at_issue:
+          type: integer
+        tenure_multiplier_at_issue:
+          type: number
+        weight:
+          type: number
+        verified_status:
+          $ref: "#/components/schemas/VerifiedStatus"
+
+    AttestationList:
+      type: object
+      description: GET /agents/{air_id}/attestations response — full public audit trail.
+      properties:
+        subject_air_id:
+          type: string
+        attestations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Attestation"
+        total:
+          type: integer
+        active:
+          type: integer
+        verified_status:
+          $ref: "#/components/schemas/VerifiedStatus"
+
+    RecentAttestation:
+      type: object
+      properties:
+        id:
+          type: integer
+        subject_air_id:
+          type: string
+        attester_air_id:
+          type: string
+        attester_whois_root:
+          type: [string, "null"]
+        attestation_type:
+          $ref: "#/components/schemas/AttestationType"
+        statement:
+          type: string
+        signed_at:
+          type: string
+          format: date-time
+        weight:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+
+    RecentAttestations:
+      type: object
+      properties:
+        attestations:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecentAttestation"
+        total:
+          type: integer
+        limit:
+          type: integer
+
+    RevokeResult:
+      type: object
+      properties:
+        revoked:
+          type: boolean
+        attestation_id:
+          type: integer
+        subject_air_id:
+          type: string
+        revoked_at:
+          type: string
+          format: date-time
+        verified_status:
+          $ref: "#/components/schemas/VerifiedStatus"
+
+    AgentGraph:
+      type: object
+      description: 1-hop attestation ego graph for GET /agents/{air_id}/graph.
+      properties:
+        air_id:
+          type: string
+        inbound:
+          type: array
+          description: Edges where this agent is the subject (who vouches for it).
+          items:
+            type: object
+            properties:
+              attester_air_id: { type: string }
+              attestation_type: { $ref: "#/components/schemas/AttestationType" }
+              attester_whois_root: { type: [string, "null"] }
+              weight: { type: number }
+              signed_at: { type: string, format: date-time }
+        outbound:
+          type: array
+          description: Edges where this agent is the attester (who it vouches for).
+          items:
+            type: object
+            properties:
+              subject_air_id: { type: string }
+              attestation_type: { $ref: "#/components/schemas/AttestationType" }
+              weight: { type: number }
+              signed_at: { type: string, format: date-time }
+        inbound_count:
+          type: integer
+        outbound_count:
+          type: integer
+
+    Dependents:
+      type: object
+      description: Transitive blast-radius for GET /agents/{air_id}/dependents.
+      properties:
+        air_id:
+          type: string
+        dependents:
+          type: array
+          items:
+            type: object
+            properties:
+              air_id: { type: string }
+              depth:
+                type: integer
+                description: Shortest dependency-hop distance from this agent to the target.
+        total:
+          type: integer
+        max_depth:
+          type: integer
+        truncated:
+          type: boolean
+          description: True if the node cap clipped the result.
+
+    GraphStats:
+      type: object
+      description: Global graph summary for GET /graph/stats.
+      properties:
+        nodes:
+          type: object
+          properties:
+            subjects: { type: integer }
+            attesters: { type: integer }
+            total_distinct: { type: integer }
+        edges:
+          type: object
+          properties:
+            active: { type: integer }
+            by_type:
+              type: object
+              additionalProperties:
+                type: integer
+        top_attested:
+          type: array
+          items:
+            type: object
+            properties:
+              air_id: { type: string }
+              count: { type: integer }
+        top_attesters:
+          type: array
+          items:
+            type: object
+            properties:
+              air_id: { type: string }
+              count: { type: integer }
