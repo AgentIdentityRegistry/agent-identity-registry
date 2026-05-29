@@ -21,7 +21,69 @@
     <meta name="twitter:image" content="https://agentidentityregistry.org/assets/og-image.png">
     <link rel="canonical" href="https://agentidentityregistry.org/">
 
-    <title>AIR — Agent Identity Registry</title>
+    <!-- Schema.org structured data — helps Google understand the org, site, and software -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://agentidentityregistry.org/#organization",
+          "name": "Agent Identity Registry",
+          "alternateName": "AIR",
+          "url": "https://agentidentityregistry.org/",
+          "logo": "https://agentidentityregistry.org/assets/og-image.png",
+          "image": "https://agentidentityregistry.org/assets/og-image.png",
+          "description": "AIR is the open identity standard and trust framework for AI agents — verifiable identity, transparent trust scoring, and neutral governance.",
+          "foundingDate": "2026",
+          "sameAs": [
+            "https://github.com/agentidentityregistry",
+            "https://pypi.org/project/agent-identity-registry/",
+            "https://pypi.org/project/air-mcp-server/"
+          ],
+          "contactPoint": [
+            {
+              "@type": "ContactPoint",
+              "contactType": "general inquiries",
+              "email": "foundation@agentidentityregistry.org"
+            },
+            {
+              "@type": "ContactPoint",
+              "contactType": "security",
+              "email": "security@agentidentityregistry.org"
+            },
+            {
+              "@type": "ContactPoint",
+              "contactType": "governance",
+              "email": "governance@agentidentityregistry.org"
+            }
+          ]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://agentidentityregistry.org/#website",
+          "url": "https://agentidentityregistry.org/",
+          "name": "Agent Identity Registry",
+          "description": "The open identity standard and trust framework for AI agents.",
+          "publisher": { "@id": "https://agentidentityregistry.org/#organization" },
+          "inLanguage": "en-US"
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://agentidentityregistry.org/#software",
+          "name": "AIR — Agent Identity Registry",
+          "applicationCategory": "DeveloperApplication",
+          "operatingSystem": "Cross-platform",
+          "url": "https://agentidentityregistry.org/",
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+          "publisher": { "@id": "https://agentidentityregistry.org/#organization" },
+          "description": "Open API, Python SDK, and MCP server for issuing cryptographically verifiable AIR IDs to AI agents — with did:wba resolution, attestation-based Verified status, and 0-1000 trust scoring."
+        }
+      ]
+    }
+    </script>
+
+    <title>AIR — Open Identity & Trust Framework for AI Agents</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Work+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
