@@ -46,3 +46,6 @@ coverage
 .env
 .env.*
 !.env.example
+
+# Pages build output (created by scripts/deploy-site.sh)
+dist/
