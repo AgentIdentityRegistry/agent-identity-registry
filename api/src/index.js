@@ -70,6 +70,14 @@ export default {
       } else if (path.match(/^\/api\/v1\/agents\/AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\/badge\.svg$/) && method === "GET") {
         const airId = path.split("/")[4];
         response = await getBadgeSvg(airId, env.DB);
+      } else if (path.match(/^\/api\/v1\/agents\/AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\/graph$/) && method === "GET") {
+        const airId = path.split("/")[4];
+        response = await getAgentGraph(airId, env.DB);
+      } else if (path.match(/^\/api\/v1\/agents\/AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\/dependents$/) && method === "GET") {
+        const airId = path.split("/")[4];
+        response = await getDependents(airId, url, env.DB);
+      } else if (path === "/api/v1/graph/stats" && method === "GET") {
+        response = await getGraphStats(env.DB);
       } else if (path === "/api/v1/agents/register" && method === "POST") {
         response = await registerAgent(request, env.DB);
       } else if (path === "/api/v1/agents/check-name" && method === "GET") {
@@ -1812,6 +1820,154 @@ async function getBadgeSvg(airId, db) {
       "Cache-Control": "public, max-age=60",
       "Access-Control-Allow-Origin": "*",
     },
+  });
+}
+
+// ============================================================
+// TRUST GRAPH (Phase 4+) — read views over agent_attestations
+// ============================================================
+//
+// The attestation table is a directed graph: each active row is an edge
+// attester -> subject ("vouches for"). `dependency`-type edges additionally
+// mean "attester depends on subject in production", which powers blast-radius.
+// All graph endpoints are PUBLIC and count active (non-revoked) edges only.
+
+// GET /api/v1/agents/{air_id}/graph
+// 1-hop ego graph: who vouches for this agent (inbound) + who it vouches for
+// (outbound).
+async function getAgentGraph(airId, db) {
+  const agent = await db.prepare("SELECT air_id FROM agents WHERE air_id = ?").bind(airId).first();
+  if (!agent) return json({ error: "agent not found", air_id: airId }, 404);
+
+  const inbound = await db.prepare(`
+    SELECT attester_air_id, attestation_type, attester_whois_root, signed_at,
+           attester_trust_at_issue * tenure_multiplier_at_issue AS weight
+    FROM agent_attestations
+    WHERE subject_air_id = ? AND revoked_at IS NULL
+    ORDER BY signed_at DESC
+  `).bind(airId).all();
+
+  const outbound = await db.prepare(`
+    SELECT subject_air_id, attestation_type, signed_at,
+           attester_trust_at_issue * tenure_multiplier_at_issue AS weight
+    FROM agent_attestations
+    WHERE attester_air_id = ? AND revoked_at IS NULL
+    ORDER BY signed_at DESC
+  `).bind(airId).all();
+
+  const inb = (inbound?.results ?? []).map(r => ({
+    attester_air_id: r.attester_air_id,
+    attestation_type: r.attestation_type,
+    attester_whois_root: r.attester_whois_root,
+    weight: r.weight,
+    signed_at: r.signed_at,
+  }));
+  const outb = (outbound?.results ?? []).map(r => ({
+    subject_air_id: r.subject_air_id,
+    attestation_type: r.attestation_type,
+    weight: r.weight,
+    signed_at: r.signed_at,
+  }));
+
+  return json({
+    air_id: airId,
+    inbound: inb,
+    outbound: outb,
+    inbound_count: inb.length,
+    outbound_count: outb.length,
+  });
+}
+
+// GET /api/v1/agents/{air_id}/dependents?depth=N&limit=M
+// Blast radius: the transitive set of agents that depend (directly or via a
+// chain) on this agent, following `dependency` edges in reverse. depth default
+// 6 (max 10), limit default 500 (max 1000). `truncated` flags when the node
+// cap clipped the result — never silently truncate.
+async function getDependents(airId, url, db) {
+  const agent = await db.prepare("SELECT air_id FROM agents WHERE air_id = ?").bind(airId).first();
+  if (!agent) return json({ error: "agent not found", air_id: airId }, 404);
+
+  const depthRaw = parseInt(url.searchParams.get("depth") || "6", 10);
+  const depth = Math.max(1, Math.min(isNaN(depthRaw) ? 6 : depthRaw, 10));
+  const limitRaw = parseInt(url.searchParams.get("limit") || "500", 10);
+  const limit = Math.max(1, Math.min(isNaN(limitRaw) ? 500 : limitRaw, 1000));
+
+  // UNION (not UNION ALL) dedups cycles; the depth guard bounds recursion.
+  // Fetch limit+1 rows so we can detect (and report) truncation.
+  const result = await db.prepare(`
+    WITH RECURSIVE dependents(air_id, depth) AS (
+      SELECT attester_air_id, 1 FROM agent_attestations
+        WHERE subject_air_id = ? AND attestation_type = 'dependency' AND revoked_at IS NULL
+      UNION
+      SELECT a.attester_air_id, d.depth + 1
+        FROM agent_attestations a JOIN dependents d ON a.subject_air_id = d.air_id
+        WHERE a.attestation_type = 'dependency' AND a.revoked_at IS NULL AND d.depth < ?
+    )
+    SELECT air_id, MIN(depth) AS depth FROM dependents
+      WHERE air_id != ?
+      GROUP BY air_id ORDER BY depth, air_id LIMIT ?
+  `).bind(airId, depth, airId, limit + 1).all();
+
+  const rows = result?.results ?? [];
+  const truncated = rows.length > limit;
+  const dependents = rows.slice(0, limit).map(r => ({ air_id: r.air_id, depth: r.depth }));
+
+  return json({
+    air_id: airId,
+    dependents,
+    total: dependents.length,
+    max_depth: depth,
+    truncated,
+  });
+}
+
+// GET /api/v1/graph/stats
+// Global trust-graph summary: node + edge counts, edges by type, plus the
+// most-attested agents and most-active attesters.
+async function getGraphStats(db) {
+  const edges = await db.prepare(
+    "SELECT COUNT(*) AS n FROM agent_attestations WHERE revoked_at IS NULL"
+  ).first();
+  const nodes = await db.prepare(`
+    SELECT COUNT(DISTINCT subject_air_id) AS subjects,
+           COUNT(DISTINCT attester_air_id) AS attesters
+    FROM agent_attestations WHERE revoked_at IS NULL
+  `).first();
+  const distinctTotal = await db.prepare(`
+    SELECT COUNT(*) AS n FROM (
+      SELECT subject_air_id AS id FROM agent_attestations WHERE revoked_at IS NULL
+      UNION
+      SELECT attester_air_id AS id FROM agent_attestations WHERE revoked_at IS NULL
+    )
+  `).first();
+  const byType = await db.prepare(`
+    SELECT attestation_type AS t, COUNT(*) AS n FROM agent_attestations
+    WHERE revoked_at IS NULL GROUP BY attestation_type
+  `).all();
+  const topAttested = await db.prepare(`
+    SELECT subject_air_id AS air_id, COUNT(*) AS count FROM agent_attestations
+    WHERE revoked_at IS NULL GROUP BY subject_air_id ORDER BY count DESC, air_id LIMIT 5
+  `).all();
+  const topAttesters = await db.prepare(`
+    SELECT attester_air_id AS air_id, COUNT(*) AS count FROM agent_attestations
+    WHERE revoked_at IS NULL GROUP BY attester_air_id ORDER BY count DESC, air_id LIMIT 5
+  `).all();
+
+  const byTypeObj = {};
+  for (const r of (byType?.results ?? [])) byTypeObj[r.t] = r.n;
+
+  return json({
+    nodes: {
+      subjects: nodes?.subjects ?? 0,
+      attesters: nodes?.attesters ?? 0,
+      total_distinct: distinctTotal?.n ?? 0,
+    },
+    edges: {
+      active: edges?.n ?? 0,
+      by_type: byTypeObj,
+    },
+    top_attested: (topAttested?.results ?? []).map(r => ({ air_id: r.air_id, count: r.count })),
+    top_attesters: (topAttesters?.results ?? []).map(r => ({ air_id: r.air_id, count: r.count })),
   });
 }
 
