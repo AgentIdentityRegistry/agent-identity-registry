@@ -54,7 +54,7 @@
   },
   "$defs": {
     "Body": {
-      "description": "Discriminated union of the five A2A body types.",
+      "description": "Discriminated union of A2A body types.",
       "oneOf": [
         { "$ref": "#/$defs/OfferBody" },
         { "$ref": "#/$defs/CounterBody" },
@@ -183,7 +183,7 @@
       "properties": {
         "type": { "const": "encrypted" },
         "alg": { "const": "x25519-hkdf-sha256-chacha20poly1305" },
-        "v": { "type": "integer", "const": 1 },
+        "v": { "const": 1 },
         "epk": { "type": "string", "pattern": "^z[1-9A-HJ-NP-Za-km-z]+$" },
         "nonce": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
         "ct": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" }
