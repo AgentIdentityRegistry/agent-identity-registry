@@ -60,7 +60,8 @@
         { "$ref": "#/$defs/CounterBody" },
         { "$ref": "#/$defs/AcceptBody" },
         { "$ref": "#/$defs/DeclineBody" },
-        { "$ref": "#/$defs/WithdrawBody" }
+        { "$ref": "#/$defs/WithdrawBody" },
+        { "$ref": "#/$defs/EncryptedBody" }
       ]
     },
     "MonetaryValue": {
@@ -172,6 +173,20 @@
           "type": "string",
           "maxLength": 512
         }
+      }
+    },
+    "EncryptedBody": {
+      "description": "Sealed-box encrypted body (spec §14). Opaque wrapper; the decrypted plaintext is itself a valid body.",
+      "type": "object",
+      "required": ["type", "alg", "v", "epk", "nonce", "ct"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "encrypted" },
+        "alg": { "const": "x25519-hkdf-sha256-chacha20poly1305" },
+        "v": { "type": "integer", "const": 1 },
+        "epk": { "type": "string", "pattern": "^z[1-9A-HJ-NP-Za-km-z]+$" },
+        "nonce": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
+        "ct": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" }
       }
     }
   }
