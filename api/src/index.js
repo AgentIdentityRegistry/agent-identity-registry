@@ -333,27 +333,43 @@ function validateDidWba(did) {
 }
 
 function didWbaResolutionUrl(parsed) {
-  // AIR-minted DIDs (did:wba:agentidentityregistry.org:agents:{air_id}) resolve at
-  // AIR's own canonical DID-document endpoint — the path AIR spec §3.3 names — NOT the
-  // generic did:wba `/{path}/did.json` convention (which the worker doesn't route;
-  // that path falls through to Pages → 404). See air/trust-graph-coldstart-2026-06-02.
-  if (
-    parsed.domain === "agentidentityregistry.org" &&
-    parsed.pathSegments.length === 2 &&
-    parsed.pathSegments[0] === "agents"
-  ) {
-    return `https://agentidentityregistry.org/api/v1/agents/${parsed.pathSegments[1]}/did-document`;
-  }
   if (parsed.pathSegments.length === 0) {
     return `https://${parsed.domain}/.well-known/agent.json`;
   }
   return `https://${parsed.domain}/${parsed.pathSegments.join("/")}/did.json`;
 }
 
-async function resolveDidWba(did) {
+async function resolveDidWba(did, db) {
   const parsed = validateDidWba(did);
   if (!parsed.valid) {
     return { resolved: false, error: parsed.error };
+  }
+
+  // AIR-minted DIDs (did:wba:agentidentityregistry.org:agents:{air_id}) are SELF-HOSTED:
+  // resolving one means checking OUR OWN registry, not an HTTP round-trip. A Worker can't
+  // reliably fetch its own route (the self-subrequest bypasses the Worker → 404), so the
+  // generic HTTP path can never resolve them. The agent existing + active + having a
+  // public_key IS the proof its DID document (AIR spec §3.3) would resolve.
+  // See air/trust-graph-coldstart-2026-06-02.
+  if (
+    parsed.domain === "agentidentityregistry.org" &&
+    parsed.pathSegments.length === 2 &&
+    parsed.pathSegments[0] === "agents"
+  ) {
+    if (!db) {
+      return { resolved: false, url: "(local)", error: "AIR-minted DID resolution needs a DB handle" };
+    }
+    const airId = parsed.pathSegments[1];
+    const row = await db.prepare(
+      "SELECT public_key, status FROM agents WHERE air_id = ?"
+    ).bind(airId).first();
+    if (!row || row.status !== "active") {
+      return { resolved: false, url: "(local)", error: "AIR-minted DID: agent not found or inactive" };
+    }
+    if (!row.public_key) {
+      return { resolved: false, url: "(local)", error: "AIR-minted DID: agent has no public_key" };
+    }
+    return { resolved: true, url: `(local: /api/v1/agents/${airId}/did-document)` };
   }
 
   const url = didWbaResolutionUrl(parsed);
@@ -725,7 +741,7 @@ async function getAttesterEligibility(attesterAirId, db) {
   if (!isDidWba(attester.creator_did)) {
     return { eligible: false, reason: "attester creator_did is not did:wba (external attesters not yet supported)" };
   }
-  const wba = await resolveDidWba(attester.creator_did);
+  const wba = await resolveDidWba(attester.creator_did, db);
   if (!wba.resolved) {
     return { eligible: false, reason: `Lock 1: did:wba live resolution failed (${wba.error})` };
   }
@@ -1167,7 +1183,7 @@ async function registerAgent(request, db) {
     if (!validation.valid) {
       return json({ error: "Invalid did:wba: " + validation.error }, 400);
     }
-    const resolution = await resolveDidWba(creatorDid);
+    const resolution = await resolveDidWba(creatorDid, db);
     didWbaResolved = resolution.resolved;
   }
 
@@ -2153,7 +2169,7 @@ async function reResolveAllDidWba(db) {
     // failure — it shouldn't throw, but defensive: a rejected promise here
     // would otherwise crash the whole cron run.
     const results = await Promise.allSettled(
-      batch.map((a) => resolveDidWba(a.creator_did))
+      batch.map((a) => resolveDidWba(a.creator_did, db))
     );
 
     const now = new Date().toISOString();
