@@ -55,3 +55,51 @@ test("peerAttestationsSubscore: curve, cap, and clamp", () => {
 
 // exported for reuse by later test tasks
 export { insertAgent };
+
+import { calculateInitialTrustScore, computeGrade } from "../src/trust.mjs";
+
+const sampleAgent = {
+  creator_did: "did:wba:example.com:agents:AIR-X",
+  creator_name: "Tester",
+  creator_type: "individual",
+  transparency_open_source: 0,
+  transparency_code_repo: null,
+  transparency_docs_url: null,
+  security_certifications: "[]",
+};
+
+test("computeGrade: tier boundaries", () => {
+  assert.equal(computeGrade(950), "AAA");
+  assert.equal(computeGrade(645), "BBB");
+  assert.equal(computeGrade(400), "B");
+  assert.equal(computeGrade(399), "C");
+});
+
+test("calculateInitialTrustScore: default peer is 300 (registration unchanged)", () => {
+  const s = calculateInitialTrustScore(sampleAgent);
+  assert.equal(s.peer_attestations, 300);
+  assert.equal(s.total_score, 400); // round(125+125+60+45+45)
+  assert.equal(s.grade, "B");
+});
+
+test("calculateInitialTrustScore: a high peerSubscore lifts the total by ~+105", () => {
+  const s = calculateInitialTrustScore(sampleAgent, 1000);
+  assert.equal(s.peer_attestations, 1000);
+  assert.equal(s.total_score, 505); // 400 + (1000-300)*0.15
+  assert.equal(s.grade, "BB");
+});
+
+test("calculateInitialTrustScore: fully-maxed agent tops out at 645/BBB", () => {
+  const maxed = {
+    creator_did: "did:wba:example.com:agents:AIR-X",
+    creator_name: "Tester",
+    creator_type: "organization",
+    transparency_open_source: 1,
+    transparency_code_repo: "https://x",
+    transparency_docs_url: "https://x",
+    security_certifications: JSON.stringify(["a", "b", "c"]),
+  };
+  const s = calculateInitialTrustScore(maxed, 1000);
+  assert.equal(s.total_score, 645);
+  assert.equal(s.grade, "BBB");
+});

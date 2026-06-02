@@ -5,6 +5,7 @@
 // hand-maintained source. Wrangler's [[rules]] type="Text" config in
 // wrangler.toml turns the .yaml import into a string at build time.
 import OPENAPI_YAML from "../openapi.yaml";
+import { calculateInitialTrustScore } from "./trust.mjs";
 
 export default {
   async fetch(request, env) {
@@ -185,16 +186,6 @@ function json(data, status = 200, extraHeaders = {}) {
     status,
     headers: { "Content-Type": "application/json", ...extraHeaders },
   });
-}
-
-function computeGrade(score) {
-  if (score >= 950) return "AAA";
-  if (score >= 850) return "AA";
-  if (score >= 700) return "A";
-  if (score >= 600) return "BBB";
-  if (score >= 500) return "BB";
-  if (score >= 400) return "B";
-  return "C";
 }
 
 // ============================================================
@@ -820,58 +811,6 @@ async function computeVerifiedStatus(subjectAirId, db) {
     verification_score: Math.round(score),
     distinct_whois_roots: roots.size,
     attestation_count: list.length,
-  };
-}
-
-// ============================================================
-// TRUST SCORE CALCULATION
-// ============================================================
-
-function calculateInitialTrustScore(agent) {
-  // Provenance: based on creator info completeness
-  let provenance = 300; // base
-  if (agent.creator_did) provenance += 100;
-  if (agent.creator_name) provenance += 100;
-  if (agent.creator_type === "organization") provenance += 100;
-  // cap at 600 for new registrations (no history)
-  provenance = Math.min(provenance, 600);
-
-  // Behavioral: starts at 500 (no history yet)
-  const behavioral = 500;
-
-  // Transparency: based on openness
-  let transparency = 300;
-  if (agent.transparency_open_source) transparency += 150;
-  if (agent.transparency_code_repo) transparency += 100;
-  if (agent.transparency_docs_url) transparency += 100;
-  transparency = Math.min(transparency, 650);
-
-  // Security: based on certifications
-  let security = 300;
-  const certs = JSON.parse(agent.security_certifications || "[]");
-  security += Math.min(certs.length * 100, 300);
-  security = Math.min(security, 600);
-
-  // Peer attestations: starts at 300 (no attestations yet)
-  const peer_attestations = 300;
-
-  // Weighted total
-  const total = Math.round(
-    provenance * 0.25 +
-    behavioral * 0.25 +
-    transparency * 0.20 +
-    security * 0.15 +
-    peer_attestations * 0.15
-  );
-
-  return {
-    total_score: total,
-    grade: computeGrade(total),
-    provenance,
-    behavioral,
-    transparency,
-    security,
-    peer_attestations,
   };
 }
 
