@@ -380,11 +380,17 @@ async function resolveDidWba(did, db) {
     const response = await fetch(url, {
       method: "GET",
       headers: { "Accept": "application/json" },
-      redirect: "error", // no redirects, security
+      redirect: "manual", // CF Workers reject "error"; we detect redirects below
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
 
+    // No redirects allowed (security): a did:wba document must be served directly.
+    // With redirect:"manual", a 3xx surfaces as a redirect status or an
+    // opaqueredirect response (status 0); reject either.
+    if (response.type === "opaqueredirect" || (response.status >= 300 && response.status < 400)) {
+      return { resolved: false, url, error: "did:wba resolution must not redirect (status " + response.status + ")" };
+    }
     if (!response.ok) {
       return { resolved: false, url, error: "HTTP " + response.status };
     }
