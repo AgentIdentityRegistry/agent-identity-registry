@@ -5,6 +5,7 @@
 // hand-maintained source. Wrangler's [[rules]] type="Text" config in
 // wrangler.toml turns the .yaml import into a string at build time.
 import OPENAPI_YAML from "../openapi.yaml";
+import { calculateInitialTrustScore, computeVerifiedStatus, recomputeTrustScore, recomputeDependentsOf } from "./trust.mjs";
 
 export default {
   async fetch(request, env) {
@@ -185,16 +186,6 @@ function json(data, status = 200, extraHeaders = {}) {
     status,
     headers: { "Content-Type": "application/json", ...extraHeaders },
   });
-}
-
-function computeGrade(score) {
-  if (score >= 950) return "AAA";
-  if (score >= 850) return "AA";
-  if (score >= 700) return "A";
-  if (score >= 600) return "BBB";
-  if (score >= 500) return "BB";
-  if (score >= 400) return "B";
-  return "C";
 }
 
 // ============================================================
@@ -799,82 +790,6 @@ async function getAttesterEligibility(attesterAirId, db) {
   };
 }
 
-// Compute Verified status for a subject from its active attestations.
-// Returns { verified, verification_score, distinct_whois_roots, attestation_count }.
-async function computeVerifiedStatus(subjectAirId, db) {
-  const result = await db.prepare(`
-    SELECT attester_whois_root, attester_trust_at_issue, tenure_multiplier_at_issue
-    FROM agent_attestations
-    WHERE subject_air_id = ? AND revoked_at IS NULL
-  `).bind(subjectAirId).all();
-
-  const list = result?.results ?? [];
-  let score = 0;
-  const roots = new Set();
-  for (const row of list) {
-    score += row.attester_trust_at_issue * row.tenure_multiplier_at_issue;
-    roots.add(row.attester_whois_root);
-  }
-  return {
-    verified: score >= 300 && roots.size >= 3,
-    verification_score: Math.round(score),
-    distinct_whois_roots: roots.size,
-    attestation_count: list.length,
-  };
-}
-
-// ============================================================
-// TRUST SCORE CALCULATION
-// ============================================================
-
-function calculateInitialTrustScore(agent) {
-  // Provenance: based on creator info completeness
-  let provenance = 300; // base
-  if (agent.creator_did) provenance += 100;
-  if (agent.creator_name) provenance += 100;
-  if (agent.creator_type === "organization") provenance += 100;
-  // cap at 600 for new registrations (no history)
-  provenance = Math.min(provenance, 600);
-
-  // Behavioral: starts at 500 (no history yet)
-  const behavioral = 500;
-
-  // Transparency: based on openness
-  let transparency = 300;
-  if (agent.transparency_open_source) transparency += 150;
-  if (agent.transparency_code_repo) transparency += 100;
-  if (agent.transparency_docs_url) transparency += 100;
-  transparency = Math.min(transparency, 650);
-
-  // Security: based on certifications
-  let security = 300;
-  const certs = JSON.parse(agent.security_certifications || "[]");
-  security += Math.min(certs.length * 100, 300);
-  security = Math.min(security, 600);
-
-  // Peer attestations: starts at 300 (no attestations yet)
-  const peer_attestations = 300;
-
-  // Weighted total
-  const total = Math.round(
-    provenance * 0.25 +
-    behavioral * 0.25 +
-    transparency * 0.20 +
-    security * 0.15 +
-    peer_attestations * 0.15
-  );
-
-  return {
-    total_score: total,
-    grade: computeGrade(total),
-    provenance,
-    behavioral,
-    transparency,
-    security,
-    peer_attestations,
-  };
-}
-
 // ============================================================
 // ROUTE HANDLERS
 // ============================================================
@@ -1389,19 +1304,24 @@ async function updateAgent(request, airId, db) {
     "UPDATE agents SET " + updates.join(", ") + " WHERE air_id = ?"
   ).bind(...binds).run();
 
-  // Recalculate trust score with updated data
-  const updated = await db.prepare("SELECT * FROM agents WHERE air_id = ?").bind(airId).first();
-  const score = calculateInitialTrustScore(updated);
+  // Recalculate trust score with updated data. Routes through recomputeTrustScore
+  // so an agent edit preserves earned trust instead of wiping peer back to 300 (#3).
+  try {
+    await recomputeTrustScore(airId, db);
+  } catch (e) {
+    console.error("recomputeTrustScore (updateAgent) failed:", e);
+  }
 
-  await db.prepare(
-    "UPDATE trust_scores SET total_score = ?, grade = ?, provenance = ?, behavioral = ?, transparency = ?, security = ?, peer_attestations = ?, calculated_at = ? WHERE air_id = ?"
-  ).bind(score.total_score, score.grade, score.provenance, score.behavioral, score.transparency, score.security, score.peer_attestations, now, airId).run();
+  // Echo the freshly-recomputed score so the response keeps its trust_score/trust_grade fields.
+  const refreshed = await db.prepare(
+    "SELECT total_score, grade FROM trust_scores WHERE air_id = ?"
+  ).bind(airId).first();
 
   return json({
     air_id: airId,
     updated_fields: updates.length - 1, // exclude updated_at
-    trust_score: score.total_score,
-    trust_grade: score.grade,
+    trust_score: refreshed?.total_score ?? null,
+    trust_grade: refreshed?.grade ?? null,
     updated: now,
     message: "Agent updated successfully.",
   });
@@ -1422,6 +1342,14 @@ async function deleteAgent(airId, db) {
   await db.prepare(
     "UPDATE agents SET status = 'deleted', updated_at = ? WHERE air_id = ?"
   ).bind(now, airId).run();
+
+  // Dead-vouch filter (#3): this agent's vouches no longer count — rescore everyone
+  // it vouched for so their trust + Verified drop immediately.
+  try {
+    await recomputeDependentsOf(airId, db);
+  } catch (e) {
+    console.error("recomputeDependentsOf (deleteAgent) failed:", e);
+  }
 
   return json({
     air_id: airId,
@@ -1671,6 +1599,14 @@ async function createAttestation(request, subjectAirId, db) {
     return json({ error: "database error", message: dbErr }, 500);
   }
 
+  // Earned-trust feedback (#3): the new vouch may raise the subject's trust.
+  // Best-effort — the attestation is already committed; staleness self-heals.
+  try {
+    await recomputeTrustScore(subjectAirId, db);
+  } catch (e) {
+    console.error("recomputeTrustScore (createAttestation) failed:", e);
+  }
+
   // ---- 8. Updated verified status (so caller knows the threshold delta) -
   const verifiedStatus = await computeVerifiedStatus(subjectAirId, db);
 
@@ -1823,6 +1759,13 @@ async function revokeAttestation(request, subjectAirId, attestationIdRaw, db) {
   const nowIso = new Date().toISOString();
   await db.prepare(`UPDATE agent_attestations SET revoked_at = ? WHERE id = ?`)
     .bind(nowIso, attestationId).run();
+
+  // Earned-trust feedback (#3): removing a vouch may lower the subject's trust.
+  try {
+    await recomputeTrustScore(subjectAirId, db);
+  } catch (e) {
+    console.error("recomputeTrustScore (revokeAttestation) failed:", e);
+  }
 
   const verifiedStatus = await computeVerifiedStatus(subjectAirId, db);
   return json({
