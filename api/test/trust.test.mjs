@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makeTestD1 } from "./helpers/d1.mjs";
-import { peerAttestationsSubscore } from "../src/trust.mjs";
+import { peerAttestationsSubscore, calculateInitialTrustScore, computeGrade } from "../src/trust.mjs";
 
 // Minimal agent-row inserter used across tests.
 async function insertAgent(db, airId, overrides = {}) {
@@ -45,18 +45,13 @@ test("peerAttestationsSubscore: curve, cap, and clamp", () => {
   assert.equal(peerAttestationsSubscore(500), 702);    // 18*22.3607=402.49 → 402
   assert.equal(peerAttestationsSubscore(1000), 869);   // 18*31.6228=569.21 → 569
   assert.equal(peerAttestationsSubscore(1500), 997);   // 18*38.7298=697.14 → 697
-  assert.equal(peerAttestationsSubscore(1512), 1000);  // ≈ where it caps
+  assert.equal(peerAttestationsSubscore(1512), 1000);  // cap point: floor(((CAP-BASE)/SCALE)^2)=floor((700/18)^2)=1512
   assert.equal(peerAttestationsSubscore(2000), 1000);  // beyond cap → pinned
   // Defensive clamp: never emit NaN/garbage into a NOT NULL column.
   assert.equal(peerAttestationsSubscore(-1), 300);
   assert.equal(peerAttestationsSubscore(NaN), 300);
   assert.equal(peerAttestationsSubscore(Infinity), 300);
 });
-
-// exported for reuse by later test tasks
-export { insertAgent };
-
-import { calculateInitialTrustScore, computeGrade } from "../src/trust.mjs";
 
 const sampleAgent = {
   creator_did: "did:wba:example.com:agents:AIR-X",
@@ -103,3 +98,6 @@ test("calculateInitialTrustScore: fully-maxed agent tops out at 645/BBB", () => 
   assert.equal(s.total_score, 645);
   assert.equal(s.grade, "BBB");
 });
+
+// exported for reuse by later test tasks
+export { insertAgent };
