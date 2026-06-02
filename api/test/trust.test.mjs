@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makeTestD1 } from "./helpers/d1.mjs";
+import { peerAttestationsSubscore } from "../src/trust.mjs";
 
 // Minimal agent-row inserter used across tests.
 async function insertAgent(db, airId, overrides = {}) {
@@ -36,6 +37,20 @@ test("harness: round-trips an agent against the real schema", async () => {
   // agent_attestations table must exist (comes from migration 0004)
   const empty = await db.prepare("SELECT COUNT(*) AS n FROM agent_attestations").bind().first();
   assert.equal(empty.n, 0);
+});
+
+test("peerAttestationsSubscore: curve, cap, and clamp", () => {
+  // 300 + round(18 * sqrt(weightSum)), capped at 1000.
+  assert.equal(peerAttestationsSubscore(0), 300);
+  assert.equal(peerAttestationsSubscore(500), 702);    // 18*22.3607=402.49 → 402
+  assert.equal(peerAttestationsSubscore(1000), 869);   // 18*31.6228=569.21 → 569
+  assert.equal(peerAttestationsSubscore(1500), 997);   // 18*38.7298=697.14 → 697
+  assert.equal(peerAttestationsSubscore(1512), 1000);  // ≈ where it caps
+  assert.equal(peerAttestationsSubscore(2000), 1000);  // beyond cap → pinned
+  // Defensive clamp: never emit NaN/garbage into a NOT NULL column.
+  assert.equal(peerAttestationsSubscore(-1), 300);
+  assert.equal(peerAttestationsSubscore(NaN), 300);
+  assert.equal(peerAttestationsSubscore(Infinity), 300);
 });
 
 // exported for reuse by later test tasks
