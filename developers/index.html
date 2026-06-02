@@ -122,9 +122,10 @@
     <div class="container">
         <div class="hero-tag">Build with AIR</div>
         <h1>Developer Guide</h1>
-        <p>Python SDK, CLI, MCP server, OpenAPI 3.1 spec. Install in one line, integrate in any language.</p>
+        <p>Python &amp; TypeScript SDKs, CLI, MCP server, OpenAPI 3.1 spec. Install in one line, integrate in any language.</p>
         <div class="hero-pill-row">
             <span class="hero-pill">✓ Python SDK live on PyPI</span>
+            <span class="hero-pill">✓ TypeScript SDK live on npm</span>
             <span class="hero-pill">✓ MCP server live on PyPI</span>
             <span class="hero-pill">✓ OpenAPI 3.1 spec live</span>
             <span class="hero-pill">✓ GitHub Action + badges</span>
@@ -287,10 +288,14 @@ asyncio.run(main())</pre>
             <h2>OpenAPI 3.1 spec / other languages</h2>
             <p>The full API contract is published as an <a href="/api/v1/openapi.yaml" target="_blank">OpenAPI 3.1 document</a> — generate a native client in any language with standard tooling.</p>
 
-            <h3>TypeScript</h3>
-<pre class="code"><span class="kw">$</span> npx openapi-typescript \
-    https://agentidentityregistry.org/api/v1/openapi.yaml \
-    -o air.d.ts</pre>
+            <h3>TypeScript / JavaScript</h3>
+            <p>A first-class SDK is published on npm — dual ESM + CommonJS, full type definitions, zero runtime dependencies:</p>
+<pre class="code"><span class="kw">$</span> npm install agent-identity-registry</pre>
+            <p>
+                <strong>Repo:</strong> <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry-typescript" target="_blank" rel="noopener">github.com/AgentIdentityRegistry/agent-identity-registry-typescript</a> &middot;
+                <strong>npm:</strong> <a href="https://www.npmjs.com/package/agent-identity-registry" target="_blank" rel="noopener">npmjs.com/package/agent-identity-registry</a>
+            </p>
+            <p>Or generate a typed client straight from the spec: <code>npx openapi-typescript https://agentidentityregistry.org/api/v1/openapi.yaml -o air.d.ts</code></p>
 
             <h3>Go</h3>
 <pre class="code"><span class="kw">$</span> go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
