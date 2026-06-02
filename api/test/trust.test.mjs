@@ -38,4 +38,5 @@ test("harness: round-trips an agent against the real schema", async () => {
   assert.equal(empty.n, 0);
 });
 
+// exported for reuse by later test tasks
 export { insertAgent };

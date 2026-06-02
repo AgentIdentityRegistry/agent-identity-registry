@@ -17,6 +17,7 @@ function statements(sql) {
   const noComments = sql
     .split("\n")
     .filter((line) => !line.trim().startsWith("--"))
+    .map((line) => line.replace(/--.*$/, ""))   // strip trailing inline comments
     .join("\n");
   return noComments.split(";").map((s) => s.trim()).filter((s) => s.length > 0);
 }
