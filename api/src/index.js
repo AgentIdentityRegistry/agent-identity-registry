@@ -1312,9 +1312,16 @@ async function updateAgent(request, airId, db) {
     console.error("recomputeTrustScore (updateAgent) failed:", e);
   }
 
+  // Echo the freshly-recomputed score so the response keeps its trust_score/trust_grade fields.
+  const refreshed = await db.prepare(
+    "SELECT total_score, grade FROM trust_scores WHERE air_id = ?"
+  ).bind(airId).first();
+
   return json({
     air_id: airId,
     updated_fields: updates.length - 1, // exclude updated_at
+    trust_score: refreshed?.total_score ?? null,
+    trust_grade: refreshed?.grade ?? null,
     updated: now,
     message: "Agent updated successfully.",
   });
