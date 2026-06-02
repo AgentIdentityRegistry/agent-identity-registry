@@ -1003,7 +1003,8 @@ async function getDidDocument(airId, db) {
   };
 
   // Cache at the edge for 5 minutes (DID docs are slow-changing).
-  return json(doc, 200, { "Cache-Control": "public, max-age=300" });
+  // 60s client cache TTL per AIR spec §3.6 (DID document freshness).
+  return json(doc, 200, { "Cache-Control": "public, max-age=60" });
 }
 
 // Parse the JSON string stored in agents.service_endpoints into validated
@@ -2162,6 +2163,10 @@ async function reResolveAllDidWba(db) {
     unresolved: 0,
     write_errors: 0,
   };
+  // Up to 5 distinct resolution-failure reasons, surfaced in the run summary so
+  // operators can diagnose without wrangler tail (would have caught the 2026-06-02
+  // did:wba self-fetch bug immediately).
+  const errorSamples = new Set();
 
   for (let i = 0; i < agents.length; i += DID_WBA_CRON_BATCH) {
     const batch = agents.slice(i, i + DID_WBA_CRON_BATCH);
@@ -2178,8 +2183,18 @@ async function reResolveAllDidWba(db) {
       const settled = results[j];
       const resolvedBool =
         settled.status === "fulfilled" ? !!settled.value.resolved : false;
-      if (resolvedBool) summary.resolved++;
-      else summary.unresolved++;
+      if (resolvedBool) {
+        summary.resolved++;
+      } else {
+        summary.unresolved++;
+        if (errorSamples.size < 5) {
+          errorSamples.add(
+            settled.status === "fulfilled"
+              ? (settled.value.error || "unknown")
+              : "threw: " + ((settled.reason && settled.reason.message) || settled.reason)
+          );
+        }
+      }
 
       try {
         await db.prepare(
@@ -2201,6 +2216,7 @@ async function reResolveAllDidWba(db) {
 
   summary.duration_ms = Date.now() - startedAt;
   summary.completed_at = new Date().toISOString();
+  summary.sample_errors = [...errorSamples];
   console.log(
     `[did-wba-cron] ${summary.total} agents in ${summary.duration_ms}ms ` +
     `— resolved=${summary.resolved} unresolved=${summary.unresolved} ` +
