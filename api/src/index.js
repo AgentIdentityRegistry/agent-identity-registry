@@ -279,7 +279,10 @@ async function generateAirId(identityDoc) {
 
 const DID_WBA_PREFIX = "did:wba:";
 const DID_WBA_TIMEOUT_MS = 3000;
-const DID_WBA_MAX_RESPONSE_BYTES = 1024;
+// 8 KB. A DID doc with the max 20 service endpoints is ~3.7 KB; the old 1024 cap
+// truncated real docs (any agent with an A2AInbox endpoint is ~1.2 KB) so JSON.parse
+// threw and resolution silently failed. See air/trust-graph-coldstart-2026-06-02.
+const DID_WBA_MAX_RESPONSE_BYTES = 8192;
 
 function isDidWba(did) {
   return typeof did === "string" && did.startsWith(DID_WBA_PREFIX);
@@ -330,6 +333,17 @@ function validateDidWba(did) {
 }
 
 function didWbaResolutionUrl(parsed) {
+  // AIR-minted DIDs (did:wba:agentidentityregistry.org:agents:{air_id}) resolve at
+  // AIR's own canonical DID-document endpoint — the path AIR spec §3.3 names — NOT the
+  // generic did:wba `/{path}/did.json` convention (which the worker doesn't route;
+  // that path falls through to Pages → 404). See air/trust-graph-coldstart-2026-06-02.
+  if (
+    parsed.domain === "agentidentityregistry.org" &&
+    parsed.pathSegments.length === 2 &&
+    parsed.pathSegments[0] === "agents"
+  ) {
+    return `https://agentidentityregistry.org/api/v1/agents/${parsed.pathSegments[1]}/did-document`;
+  }
   if (parsed.pathSegments.length === 0) {
     return `https://${parsed.domain}/.well-known/agent.json`;
   }
@@ -359,7 +373,15 @@ async function resolveDidWba(did) {
       return { resolved: false, url, error: "HTTP " + response.status };
     }
 
-    // Stream-read with 1KB cap (truncate, don't reject)
+    // Must be a JSON document. Enforces the did:wba content type AND guards against
+    // reading an HTML error page (e.g. a 200 SPA fallback) as a DID doc — the class of
+    // bug that hid the AIR-minted resolution break. See air/trust-graph-coldstart-2026-06-02.
+    const contentType = (response.headers.get("content-type") || "").toLowerCase();
+    if (!contentType.includes("application/json") && !contentType.includes("application/did+json")) {
+      return { resolved: false, url, error: "DID document is not JSON (content-type: " + (contentType || "none") + ")" };
+    }
+
+    // Stream-read up to the byte cap (truncate, don't reject)
     const reader = response.body.getReader();
     const chunks = [];
     let received = 0;
@@ -371,7 +393,7 @@ async function resolveDidWba(did) {
     }
     try { reader.cancel(); } catch {}
 
-    // Concatenate up to 1KB
+    // Concatenate up to the byte cap
     const merged = new Uint8Array(Math.min(received, DID_WBA_MAX_RESPONSE_BYTES));
     let offset = 0;
     for (const chunk of chunks) {
