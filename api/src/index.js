@@ -1432,6 +1432,13 @@ const VALID_ATTESTATION_TYPES = new Set([
   "safety_review",          // I have reviewed and trust this agent's safety
 ]);
 
+// Attestation signed_at freshness window (replay defense; see migration 0005 +
+// [[air/trust-graph-coldstart-2026-06-02]]). signed_at is part of the signed
+// payload, so bounding it limits how stale/early a first-time submission may be;
+// UNIQUE(signature_multibase) is the hard backstop against exact replay.
+const ATTESTATION_MAX_AGE_MS = 60 * 60 * 1000; // 1h — signed_at must be recent
+const ATTESTATION_FUTURE_SKEW_MS = 5 * 60 * 1000; // tolerate 5m of clock skew ahead
+
 async function createAttestation(request, subjectAirId, db) {
   // ---- 1. Parse + validate body shape -------------------------------------
   let body;
@@ -1467,6 +1474,22 @@ async function createAttestation(request, subjectAirId, db) {
     }, 400);
   }
 
+  // Replay defense: signed_at must be a valid, recent ISO-8601 timestamp.
+  // It is part of the signed payload; UNIQUE(signature_multibase) (migration 0005)
+  // blocks exact re-insertion, and this bounds how stale/early a first submission
+  // may be. Placed early so it is reachable without an eligible attester.
+  const signedAtMs = Date.parse(signed_at);
+  if (Number.isNaN(signedAtMs)) {
+    return json({ error: "'signed_at' must be an ISO-8601 timestamp" }, 400);
+  }
+  const nowMs = Date.now();
+  if (signedAtMs > nowMs + ATTESTATION_FUTURE_SKEW_MS) {
+    return json({ error: "'signed_at' is in the future", hint: "check the signer's clock (max +5m skew)" }, 400);
+  }
+  if (signedAtMs < nowMs - ATTESTATION_MAX_AGE_MS) {
+    return json({ error: "'signed_at' is too old; re-sign with a current timestamp", max_age_seconds: ATTESTATION_MAX_AGE_MS / 1000 }, 400);
+  }
+
   // ---- 2. Self-attestation guard + subject existence ---------------------
   if (subjectAirId === attester_air_id) {
     return json({ error: "self-attestation is not allowed" }, 400);
@@ -1497,6 +1520,21 @@ async function createAttestation(request, subjectAirId, db) {
   const providedHash = await sha256Hex(secret);
   if (!constantTimeEquals(providedHash, attesterAuth.agent_secret_hash)) {
     return json({ error: "invalid attester secret" }, 401);
+  }
+
+  // Duplicate guard: at most one ACTIVE attestation per (subject, attester).
+  // Re-attesting after revocation is allowed (revoked rows are excluded). The
+  // partial UNIQUE index from migration 0005 is the hard backstop; this returns
+  // a clean 409 and avoids the network-heavy eligibility check below.
+  const existingActive = await db.prepare(
+    "SELECT id FROM agent_attestations WHERE subject_air_id = ? AND attester_air_id = ? AND revoked_at IS NULL"
+  ).bind(subjectAirId, attester_air_id).first();
+  if (existingActive) {
+    return json({
+      error: "an active attestation from this attester to this subject already exists",
+      attestation_id: existingActive.id,
+      hint: "revoke the existing attestation before issuing a new one",
+    }, 409);
   }
 
   // ---- 4. Run eligibility locks (Locks 1 + 3 + 5 + Lock 2 prep) ---------
@@ -1579,10 +1617,13 @@ async function createAttestation(request, subjectAirId, db) {
       nowIso,
     ).run();
   } catch (e) {
-    return json({
-      error: "database error",
-      message: String(e.message ?? e),
-    }, 500);
+    const dbErr = String(e.message ?? e);
+    // The UNIQUE indexes from migration 0005 (signature, active subject+attester)
+    // are the hard backstop against a race that slips past the checks above.
+    if (/UNIQUE constraint failed/i.test(dbErr)) {
+      return json({ error: "duplicate attestation (this signature, or an active attestation for this subject+attester, already exists)" }, 409);
+    }
+    return json({ error: "database error", message: dbErr }, 500);
   }
 
   // ---- 8. Updated verified status (so caller knows the threshold delta) -
