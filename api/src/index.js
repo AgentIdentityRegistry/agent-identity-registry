@@ -438,8 +438,8 @@ async function resolveDidWba(did, db) {
 // ============================================================
 // Validation helpers for cryptographic material submitted by clients.
 // Currently: Ed25519 public keys (base64url, 32 bytes after decode).
-// Future: signature verification, key rotation helpers, etc.
-
+// Key ENCODING (base58/multibase) now lives in ./did-keys.mjs; this section holds
+// key validation + Ed25519 signature verification.
 
 // Generate a 32-char hex agent secret (16 random bytes = 128 bits of entropy).
 // Plaintext is shown to the user once at registration and never stored or recoverable.
@@ -513,7 +513,6 @@ function validatePublicKey(key) {
 //   verified = (sum(weight) >= 300) AND (count(distinct whois_root) >= 3)
 //
 // See [[air/strategic-borrowings-from-opena2a-2026-05-28]] for design rationale.
-
 
 // Canonical JSON per RFC 8785 (JCS). Matches the A2A draft-1 _jcs_exact()
 // pattern in the conformance harness — no float coercion, exact integers.
