@@ -1,7 +1,7 @@
 # Design Spec — #4 Resolved-Key Check (Lock 1 did:wba key binding)
 
 - **Date:** 2026-06-03
-- **Status:** Approved design (pre-implementation) — incorporates independent critic review (verdict: APPROVE-WITH-CHANGES, 2026-06-03): canonical-AIR-domain hard-reject, cron `public_key` SELECT, base58 length guard, residual-risk + edge-case notes
+- **Status:** Implemented on branch feat/resolved-key-check (pending deploy) — incorporates independent critic review (verdict: APPROVE-WITH-CHANGES, 2026-06-03): canonical-AIR-domain hard-reject, cron `public_key` SELECT, base58 length guard, residual-risk + edge-case notes
 - **Component:** AIR registry worker — `api/src/index.js` (+ new `api/src/did-keys.mjs`)
 - **Related:** [air/trust-graph-coldstart-2026-06-02] (GBrain) — security TODO #4. Sibling item #3 (trust feedback loop) shipped on branch `feat/trust-feedback-loop` (PR #1); #4 branches from there and deploys together.
 - **Migration required:** none (schema unchanged; `did_wba_resolved` already exists)
