@@ -350,6 +350,8 @@ async function resolveDidWba(did, db) {
     if (parsed.pathSegments.length !== 2 || parsed.pathSegments[0] !== "agents") {
       return { resolved: false, url: "(local)", error: "non-canonical AIR-domain did:wba (expected agents:{air_id})" };
     }
+    // (The shape guard above also keeps the !db / direct-DB path below unreachable
+    //  for any attacker-crafted same-domain DID — only canonical AIR-minted DIDs reach it.)
     if (!db) {
       return { resolved: false, url: "(local)", error: "AIR-minted DID resolution needs a DB handle" };
     }
@@ -2049,9 +2051,12 @@ async function reResolveAllDidWba(db) {
       const settled = results[j];
       let resolvedBool =
         settled.status === "fulfilled" ? !!settled.value.resolved : false;
-      let reason = settled.status === "fulfilled"
-        ? (settled.value.error || "unknown")
-        : "threw: " + ((settled.reason && settled.reason.message) || settled.reason);
+      let reason;
+      if (!resolvedBool) {
+        reason = settled.status === "fulfilled"
+          ? (settled.value.error || "unknown")
+          : "threw: " + ((settled.reason && settled.reason.message) || settled.reason);
+      }
       // #4 key-binding drift: a resolved EXTERNAL doc that does not advertise the
       // agent's registered key is flagged (distinct from an unreachable host).
       if (resolvedBool && settled.status === "fulfilled" && settled.value.document &&
