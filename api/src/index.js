@@ -5,6 +5,7 @@
 // hand-maintained source. Wrangler's [[rules]] type="Text" config in
 // wrangler.toml turns the .yaml import into a string at build time.
 import OPENAPI_YAML from "../openapi.yaml";
+import { base58Decode, base64urlToBytes, ed25519ToMultibase, documentContainsKey } from "./did-keys.mjs";
 import { calculateInitialTrustScore, computeVerifiedStatus, recomputeTrustScore, recomputeDependentsOf } from "./trust.mjs";
 
 export default {
@@ -342,11 +343,15 @@ async function resolveDidWba(did, db) {
   // generic HTTP path can never resolve them. The agent existing + active + having a
   // public_key IS the proof its DID document (AIR spec §3.3) would resolve.
   // See air/trust-graph-coldstart-2026-06-02.
-  if (
-    parsed.domain === "agentidentityregistry.org" &&
-    parsed.pathSegments.length === 2 &&
-    parsed.pathSegments[0] === "agents"
-  ) {
+  if (parsed.domain === "agentidentityregistry.org") {
+    // Any did:wba on OUR domain MUST be the canonical agents:{air_id} shape, resolved
+    // via direct DB check — never an HTTP self-fetch. Reject anything else at the source
+    // so a future catch-all/SPA route on this domain can't become a key-substitution vector.
+    if (parsed.pathSegments.length !== 2 || parsed.pathSegments[0] !== "agents") {
+      return { resolved: false, url: "(local)", error: "non-canonical AIR-domain did:wba (expected agents:{air_id})" };
+    }
+    // (The shape guard above also keeps the !db / direct-DB path below unreachable
+    //  for any attacker-crafted same-domain DID — only canonical AIR-minted DIDs reach it.)
     if (!db) {
       return { resolved: false, url: "(local)", error: "AIR-minted DID resolution needs a DB handle" };
     }
@@ -418,13 +423,15 @@ async function resolveDidWba(did, db) {
     }
     const text = new TextDecoder().decode(merged);
 
-    // Best-effort JSON parse — contents not validated in v1
+    // Parse the DID document and KEEP it — the caller binds the published key to
+    // AIR's record (#4 resolved-key check). A non-JSON body still fails closed.
+    let document;
     try {
-      JSON.parse(text);
+      document = JSON.parse(text);
     } catch {
       return { resolved: false, url, error: "response is not valid JSON" };
     }
-    return { resolved: true, url };
+    return { resolved: true, url, document };
   } catch (e) {
     clearTimeout(timeoutId);
     const error = e.name === "AbortError" ? "timeout after " + DID_WBA_TIMEOUT_MS + "ms" : e.message || "network error";
@@ -437,58 +444,8 @@ async function resolveDidWba(did, db) {
 // ============================================================
 // Validation helpers for cryptographic material submitted by clients.
 // Currently: Ed25519 public keys (base64url, 32 bytes after decode).
-// Future: signature verification, key rotation helpers, etc.
-
-// base58btc alphabet per RFC draft-msporny-base58. Excludes 0, O, I, l (look-alikes).
-const BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-
-// Base58btc encoder. Used to produce W3C DID Core publicKeyMultibase values.
-// Treats input as big-endian integer; repeatedly divides by 58. Leading zero
-// bytes in input become leading '1' chars in output (per Bitcoin base58 convention).
-function base58Encode(bytes) {
-  let leadingZeros = 0;
-  while (leadingZeros < bytes.length && bytes[leadingZeros] === 0) leadingZeros++;
-
-  const digits = [0];
-  for (let i = 0; i < bytes.length; i++) {
-    let carry = bytes[i];
-    for (let j = 0; j < digits.length; j++) {
-      carry += digits[j] << 8; // multiply existing digits by 256
-      digits[j] = carry % 58;
-      carry = Math.floor(carry / 58);
-    }
-    while (carry > 0) {
-      digits.push(carry % 58);
-      carry = Math.floor(carry / 58);
-    }
-  }
-
-  let result = "";
-  for (let i = 0; i < leadingZeros; i++) result += "1";
-  for (let i = digits.length - 1; i >= 0; i--) result += BASE58_ALPHABET[digits[i]];
-  return result;
-}
-
-// Convert a base64url-encoded Ed25519 public key (32 bytes) to W3C
-// publicKeyMultibase format: multicodec prefix 0xed 0x01 + key bytes, then
-// base58btc encoded with "z" multibase prefix. Output looks like "z6Mk...".
-// This is the same encoding did:key uses for Ed25519 keys.
-function ed25519ToMultibase(base64urlKey) {
-  // base64url → base64 → byte string
-  let b64 = base64urlKey.replace(/-/g, "+").replace(/_/g, "/");
-  while (b64.length % 4 !== 0) b64 += "=";
-  const binary = atob(b64);
-  const keyBytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) keyBytes[i] = binary.charCodeAt(i);
-
-  // Prepend Ed25519 multicodec: 0xed 0x01 (varint encoding of code 0xed)
-  const prefixed = new Uint8Array(2 + keyBytes.length);
-  prefixed[0] = 0xed;
-  prefixed[1] = 0x01;
-  prefixed.set(keyBytes, 2);
-
-  return "z" + base58Encode(prefixed);
-}
+// Key ENCODING (base58/multibase) now lives in ./did-keys.mjs; this section holds
+// key validation + Ed25519 signature verification.
 
 // Generate a 32-char hex agent secret (16 random bytes = 128 bits of entropy).
 // Plaintext is shown to the user once at registration and never stored or recoverable.
@@ -562,50 +519,6 @@ function validatePublicKey(key) {
 //   verified = (sum(weight) >= 300) AND (count(distinct whois_root) >= 3)
 //
 // See [[air/strategic-borrowings-from-opena2a-2026-05-28]] for design rationale.
-
-// Decode a base64url string to raw Uint8Array bytes.
-function base64urlToBytes(s) {
-  let b64 = s.replace(/-/g, "+").replace(/_/g, "/");
-  while (b64.length % 4 !== 0) b64 += "=";
-  const binary = atob(b64);
-  const out = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
-  return out;
-}
-
-// Inverse of base58Encode() defined earlier. Decodes base58btc → raw bytes.
-const BASE58_DECODE_LUT = (() => {
-  const m = new Int8Array(128).fill(-1);
-  for (let i = 0; i < BASE58_ALPHABET.length; i++) m[BASE58_ALPHABET.charCodeAt(i)] = i;
-  return m;
-})();
-function base58Decode(s) {
-  if (typeof s !== "string" || s.length === 0) return new Uint8Array(0);
-  // Count leading "1"s — these encode leading zero bytes.
-  let leadingOnes = 0;
-  while (leadingOnes < s.length && s[leadingOnes] === "1") leadingOnes++;
-  // base58 → base256 (little-endian during accumulation, reversed at end)
-  const bytes = [];
-  for (let i = 0; i < s.length; i++) {
-    const c = s.charCodeAt(i);
-    if (c >= 128) throw new Error("invalid base58 character");
-    const value = BASE58_DECODE_LUT[c];
-    if (value === -1) throw new Error("invalid base58 character: " + s[i]);
-    let carry = value;
-    for (let j = 0; j < bytes.length; j++) {
-      carry += bytes[j] * 58;
-      bytes[j] = carry & 0xff;
-      carry >>= 8;
-    }
-    while (carry > 0) {
-      bytes.push(carry & 0xff);
-      carry >>= 8;
-    }
-  }
-  const out = new Uint8Array(leadingOnes + bytes.length);
-  for (let i = 0; i < bytes.length; i++) out[leadingOnes + i] = bytes[bytes.length - 1 - i];
-  return out;
-}
 
 // Canonical JSON per RFC 8785 (JCS). Matches the A2A draft-1 _jcs_exact()
 // pattern in the conformance harness — no float coercion, exact integers.
@@ -741,6 +654,12 @@ async function getAttesterEligibility(attesterAirId, db) {
   const wba = await resolveDidWba(attester.creator_did, db);
   if (!wba.resolved) {
     return { eligible: false, reason: `Lock 1: did:wba live resolution failed (${wba.error})` };
+  }
+  // Lock 1 key binding (#4): for an EXTERNAL did:wba, the freshly-resolved document
+  // must advertise the key we verify signatures against. AIR-minted DIDs return no
+  // `document` (self-consistent by construction) and skip this.
+  if (wba.document && !documentContainsKey(wba.document, attester.public_key)) {
+    return { eligible: false, reason: "Lock 1: published did.json does not advertise the registered public key" };
   }
 
   // Lock 3a: tenure ≥30 days
@@ -2101,7 +2020,7 @@ async function reResolveAllDidWba(db) {
   const startedAt = Date.now();
 
   const { results: agents } = await db.prepare(
-    `SELECT air_id, creator_did
+    `SELECT air_id, creator_did, public_key
      FROM agents
      WHERE status = 'active' AND creator_did LIKE 'did:wba:%'`
   ).all();
@@ -2130,19 +2049,26 @@ async function reResolveAllDidWba(db) {
     for (let j = 0; j < batch.length; j++) {
       const agent = batch[j];
       const settled = results[j];
-      const resolvedBool =
+      let resolvedBool =
         settled.status === "fulfilled" ? !!settled.value.resolved : false;
+      let reason;
+      if (!resolvedBool) {
+        reason = settled.status === "fulfilled"
+          ? (settled.value.error || "unknown")
+          : "threw: " + ((settled.reason && settled.reason.message) || settled.reason);
+      }
+      // #4 key-binding drift: a resolved EXTERNAL doc that does not advertise the
+      // agent's registered key is flagged (distinct from an unreachable host).
+      if (resolvedBool && settled.status === "fulfilled" && settled.value.document &&
+          !documentContainsKey(settled.value.document, agent.public_key)) {
+        resolvedBool = false;
+        reason = "did:wba key drift (published did.json does not advertise the registered key)";
+      }
       if (resolvedBool) {
         summary.resolved++;
       } else {
         summary.unresolved++;
-        if (errorSamples.size < 5) {
-          errorSamples.add(
-            settled.status === "fulfilled"
-              ? (settled.value.error || "unknown")
-              : "threw: " + ((settled.reason && settled.reason.message) || settled.reason)
-          );
-        }
+        if (errorSamples.size < 5) errorSamples.add(reason);
       }
 
       try {
