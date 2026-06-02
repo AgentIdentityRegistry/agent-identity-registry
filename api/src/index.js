@@ -5,7 +5,7 @@
 // hand-maintained source. Wrangler's [[rules]] type="Text" config in
 // wrangler.toml turns the .yaml import into a string at build time.
 import OPENAPI_YAML from "../openapi.yaml";
-import { calculateInitialTrustScore, computeVerifiedStatus } from "./trust.mjs";
+import { calculateInitialTrustScore, computeVerifiedStatus, recomputeTrustScore, recomputeDependentsOf } from "./trust.mjs";
 
 export default {
   async fetch(request, env) {
@@ -1304,19 +1304,17 @@ async function updateAgent(request, airId, db) {
     "UPDATE agents SET " + updates.join(", ") + " WHERE air_id = ?"
   ).bind(...binds).run();
 
-  // Recalculate trust score with updated data
-  const updated = await db.prepare("SELECT * FROM agents WHERE air_id = ?").bind(airId).first();
-  const score = calculateInitialTrustScore(updated);
-
-  await db.prepare(
-    "UPDATE trust_scores SET total_score = ?, grade = ?, provenance = ?, behavioral = ?, transparency = ?, security = ?, peer_attestations = ?, calculated_at = ? WHERE air_id = ?"
-  ).bind(score.total_score, score.grade, score.provenance, score.behavioral, score.transparency, score.security, score.peer_attestations, now, airId).run();
+  // Recalculate trust score with updated data. Routes through recomputeTrustScore
+  // so an agent edit preserves earned trust instead of wiping peer back to 300 (#3).
+  try {
+    await recomputeTrustScore(airId, db);
+  } catch (e) {
+    console.error("recomputeTrustScore (updateAgent) failed:", e);
+  }
 
   return json({
     air_id: airId,
     updated_fields: updates.length - 1, // exclude updated_at
-    trust_score: score.total_score,
-    trust_grade: score.grade,
     updated: now,
     message: "Agent updated successfully.",
   });
@@ -1337,6 +1335,14 @@ async function deleteAgent(airId, db) {
   await db.prepare(
     "UPDATE agents SET status = 'deleted', updated_at = ? WHERE air_id = ?"
   ).bind(now, airId).run();
+
+  // Dead-vouch filter (#3): this agent's vouches no longer count — rescore everyone
+  // it vouched for so their trust + Verified drop immediately.
+  try {
+    await recomputeDependentsOf(airId, db);
+  } catch (e) {
+    console.error("recomputeDependentsOf (deleteAgent) failed:", e);
+  }
 
   return json({
     air_id: airId,
@@ -1586,6 +1592,14 @@ async function createAttestation(request, subjectAirId, db) {
     return json({ error: "database error", message: dbErr }, 500);
   }
 
+  // Earned-trust feedback (#3): the new vouch may raise the subject's trust.
+  // Best-effort — the attestation is already committed; staleness self-heals.
+  try {
+    await recomputeTrustScore(subjectAirId, db);
+  } catch (e) {
+    console.error("recomputeTrustScore (createAttestation) failed:", e);
+  }
+
   // ---- 8. Updated verified status (so caller knows the threshold delta) -
   const verifiedStatus = await computeVerifiedStatus(subjectAirId, db);
 
@@ -1738,6 +1752,13 @@ async function revokeAttestation(request, subjectAirId, attestationIdRaw, db) {
   const nowIso = new Date().toISOString();
   await db.prepare(`UPDATE agent_attestations SET revoked_at = ? WHERE id = ?`)
     .bind(nowIso, attestationId).run();
+
+  // Earned-trust feedback (#3): removing a vouch may lower the subject's trust.
+  try {
+    await recomputeTrustScore(subjectAirId, db);
+  } catch (e) {
+    console.error("recomputeTrustScore (revokeAttestation) failed:", e);
+  }
 
   const verifiedStatus = await computeVerifiedStatus(subjectAirId, db);
   return json({

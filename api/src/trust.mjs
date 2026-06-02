@@ -108,7 +108,9 @@ export async function computeVerifiedStatus(subjectAirId, db) {
 // graph. Idempotent. No-ops if the agent or its trust_scores row is missing
 // (registration always inserts the row first).
 export async function recomputeTrustScore(airId, db) {
-  const agent = await db.prepare("SELECT * FROM agents WHERE air_id = ?").bind(airId).first();
+  const agent = await db.prepare(
+    "SELECT creator_did, creator_name, creator_type, transparency_open_source, transparency_code_repo, transparency_docs_url, security_certifications FROM agents WHERE air_id = ?"
+  ).bind(airId).first();
   if (!agent) return;
   const existing = await db.prepare("SELECT air_id FROM trust_scores WHERE air_id = ?").bind(airId).first();
   if (!existing) return;

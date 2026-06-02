@@ -199,5 +199,23 @@ test("recomputeDependentsOf: rescores every subject the attester vouched for", a
   assert.equal(await peerOf(db, s2.air_id), 300);
 });
 
+test("integration: create→recompute raises trust; delete-attester→recompute drops it", async () => {
+  const db = makeTestD1();
+  const subj = await insertAgent(db, "AIR-INTG-0000-0001");
+  await seedTrustRow(db, subj);
+  await insertAgent(db, "AIR-IATT-0000-0001");
+  assert.equal(await peerOf(db, subj.air_id), 300);
+
+  // createAttestation does: insert attestation row, then recomputeTrustScore(subject).
+  await insertAttestation(db, { subject: subj.air_id, attester: "AIR-IATT-0000-0001", root: "i.com", trust: 500 });
+  await recomputeTrustScore(subj.air_id, db);
+  assert.equal(await peerOf(db, subj.air_id), 702);
+
+  // deleteAgent does: mark attester deleted, then recomputeDependentsOf(attester).
+  await db.prepare("UPDATE agents SET status = 'deleted' WHERE air_id = ?").bind("AIR-IATT-0000-0001").run();
+  await recomputeDependentsOf("AIR-IATT-0000-0001", db);
+  assert.equal(await peerOf(db, subj.air_id), 300);
+});
+
 // exported for reuse by later test tasks
 export { insertAgent, insertAttestation };
