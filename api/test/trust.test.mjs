@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makeTestD1 } from "./helpers/d1.mjs";
-import { peerAttestationsSubscore, calculateInitialTrustScore, computeGrade, computeVerifiedStatus } from "../src/trust.mjs";
+import { peerAttestationsSubscore, calculateInitialTrustScore, computeGrade, computeVerifiedStatus, recomputeTrustScore } from "../src/trust.mjs";
 
 // Minimal agent-row inserter used across tests.
 async function insertAgent(db, airId, overrides = {}) {
@@ -130,6 +130,51 @@ test("computeVerifiedStatus: excludes deleted attesters and revoked rows", async
   assert.equal(v.distinct_whois_roots, 2);          // a1, a2 only
   assert.equal(v.verification_score, 900);          // 500*1 + 400*1
   assert.equal(v.verified, false);                  // needs ≥3 roots; ATT3's would-be 3rd root is dead
+});
+
+// Insert the registration-time trust_scores row (peer = 300) for an agent.
+async function seedTrustRow(db, agent) {
+  const s = calculateInitialTrustScore(agent);
+  await db.prepare(
+    `INSERT INTO trust_scores (air_id, total_score, grade, provenance, behavioral, transparency, security, peer_attestations, calculated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(agent.air_id, s.total_score, s.grade, s.provenance, s.behavioral, s.transparency, s.security, s.peer_attestations, "2026-01-01T00:00:00.000Z").run();
+}
+
+async function peerOf(db, airId) {
+  const r = await db.prepare("SELECT peer_attestations FROM trust_scores WHERE air_id = ?").bind(airId).first();
+  return r?.peer_attestations;
+}
+
+test("recomputeTrustScore: peer rises, reverts, stays frozen, no-ops when no row", async () => {
+  const db = makeTestD1();
+  const subj = await insertAgent(db, "AIR-SUBJ-0000-0001");
+  await seedTrustRow(db, subj);
+  await insertAgent(db, "AIR-ATTA-0000-0001");
+  await insertAgent(db, "AIR-ATTB-0000-0001");
+
+  // Two active vouches, weightSum = 500 + 500 = 1000 → peer 869.
+  await insertAttestation(db, { subject: subj.air_id, attester: "AIR-ATTA-0000-0001", root: "a.com", trust: 500 });
+  await insertAttestation(db, { subject: subj.air_id, attester: "AIR-ATTB-0000-0001", root: "b.com", trust: 500 });
+  await recomputeTrustScore(subj.air_id, db);
+  assert.equal(await peerOf(db, subj.air_id), 869);
+
+  // Frozen: bumping an attester's LIVE trust doesn't move the subject's score.
+  await seedTrustRow(db, { air_id: "AIR-ATTA-0000-0001", creator_did: "x", security_certifications: "[]" });
+  await db.prepare("UPDATE trust_scores SET total_score = 999 WHERE air_id = ?").bind("AIR-ATTA-0000-0001").run();
+  await recomputeTrustScore(subj.air_id, db);
+  assert.equal(await peerOf(db, subj.air_id), 869); // unchanged — uses attester_trust_at_issue
+
+  // Revoke one → weightSum 500 → peer 702.
+  await db.prepare("UPDATE agent_attestations SET revoked_at = '2026-03-01T00:00:00.000Z' WHERE attester_air_id = ?")
+    .bind("AIR-ATTB-0000-0001").run();
+  await recomputeTrustScore(subj.air_id, db);
+  assert.equal(await peerOf(db, subj.air_id), 702);
+
+  // No trust_scores row → no throw, no insert.
+  await insertAgent(db, "AIR-NONE-0000-0001");
+  await recomputeTrustScore("AIR-NONE-0000-0001", db);
+  assert.equal(await peerOf(db, "AIR-NONE-0000-0001"), undefined);
 });
 
 // exported for reuse by later test tasks

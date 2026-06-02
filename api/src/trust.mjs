@@ -102,3 +102,23 @@ export async function computeVerifiedStatus(subjectAirId, db) {
     attestation_count: list.length,
   };
 }
+
+// ---- Recompute triggers (security TODO #3) --------------------------------
+// Recompute one subject's stored trust_scores row from its current attestation
+// graph. Idempotent. No-ops if the agent or its trust_scores row is missing
+// (registration always inserts the row first).
+export async function recomputeTrustScore(airId, db) {
+  const agent = await db.prepare("SELECT * FROM agents WHERE air_id = ?").bind(airId).first();
+  if (!agent) return;
+  const existing = await db.prepare("SELECT air_id FROM trust_scores WHERE air_id = ?").bind(airId).first();
+  if (!existing) return;
+
+  const verified = await computeVerifiedStatus(airId, db);
+  const peerSubscore = peerAttestationsSubscore(verified.verification_score);
+  const score = calculateInitialTrustScore(agent, peerSubscore);
+  const now = new Date().toISOString();
+
+  await db.prepare(
+    "UPDATE trust_scores SET total_score = ?, grade = ?, provenance = ?, behavioral = ?, transparency = ?, security = ?, peer_attestations = ?, calculated_at = ? WHERE air_id = ?"
+  ).bind(score.total_score, score.grade, score.provenance, score.behavioral, score.transparency, score.security, score.peer_attestations, now, airId).run();
+}
