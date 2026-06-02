@@ -122,3 +122,14 @@ export async function recomputeTrustScore(airId, db) {
     "UPDATE trust_scores SET total_score = ?, grade = ?, provenance = ?, behavioral = ?, transparency = ?, security = ?, peer_attestations = ?, calculated_at = ? WHERE air_id = ?"
   ).bind(score.total_score, score.grade, score.provenance, score.behavioral, score.transparency, score.security, score.peer_attestations, now, airId).run();
 }
+
+// When an attester's status changes (today: deletion), every subject it
+// actively vouches for must be rescored so dead vouches stop counting.
+export async function recomputeDependentsOf(attesterAirId, db) {
+  const rows = await db.prepare(
+    "SELECT DISTINCT subject_air_id FROM agent_attestations WHERE attester_air_id = ? AND revoked_at IS NULL"
+  ).bind(attesterAirId).all();
+  for (const row of (rows?.results ?? [])) {
+    await recomputeTrustScore(row.subject_air_id, db);
+  }
+}

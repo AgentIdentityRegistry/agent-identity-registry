@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makeTestD1 } from "./helpers/d1.mjs";
-import { peerAttestationsSubscore, calculateInitialTrustScore, computeGrade, computeVerifiedStatus, recomputeTrustScore } from "../src/trust.mjs";
+import { peerAttestationsSubscore, calculateInitialTrustScore, computeGrade, computeVerifiedStatus, recomputeTrustScore, recomputeDependentsOf } from "../src/trust.mjs";
 
 // Minimal agent-row inserter used across tests.
 async function insertAgent(db, airId, overrides = {}) {
@@ -175,6 +175,28 @@ test("recomputeTrustScore: peer rises, reverts, stays frozen, no-ops when no row
   await insertAgent(db, "AIR-NONE-0000-0001");
   await recomputeTrustScore("AIR-NONE-0000-0001", db);
   assert.equal(await peerOf(db, "AIR-NONE-0000-0001"), undefined);
+});
+
+test("recomputeDependentsOf: rescores every subject the attester vouched for", async () => {
+  const db = makeTestD1();
+  const s1 = await insertAgent(db, "AIR-DEP1-0000-0001");
+  const s2 = await insertAgent(db, "AIR-DEP2-0000-0001");
+  await seedTrustRow(db, s1);
+  await seedTrustRow(db, s2);
+  await insertAgent(db, "AIR-XATT-0000-0001");
+  // X vouches for both S1 and S2 (weightSum 500 each → peer 702).
+  await insertAttestation(db, { subject: s1.air_id, attester: "AIR-XATT-0000-0001", root: "x.com", trust: 500 });
+  await insertAttestation(db, { subject: s2.air_id, attester: "AIR-XATT-0000-0001", root: "x.com", trust: 500 });
+
+  await recomputeDependentsOf("AIR-XATT-0000-0001", db);
+  assert.equal(await peerOf(db, s1.air_id), 702);
+  assert.equal(await peerOf(db, s2.air_id), 702);
+
+  // Simulate X being deleted: its vouches stop counting; recompute drops them to 300.
+  await db.prepare("UPDATE agents SET status = 'deleted' WHERE air_id = ?").bind("AIR-XATT-0000-0001").run();
+  await recomputeDependentsOf("AIR-XATT-0000-0001", db);
+  assert.equal(await peerOf(db, s1.air_id), 300);
+  assert.equal(await peerOf(db, s2.air_id), 300);
 });
 
 // exported for reuse by later test tasks
