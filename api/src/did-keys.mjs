@@ -77,6 +77,40 @@ export function multibaseToEd25519Bytes(multibase) {
   return decoded.slice(2);
 }
 
+// ---------------------------------------------------------------------------
+// DID document key binding — security core of AIR plan #4
+// ---------------------------------------------------------------------------
+
+// Constant-time-not-required equality for two Uint8Arrays (public keys).
+function bytesEqual(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+// Every Ed25519 key (raw bytes) advertised in a parsed DID document's
+// verificationMethod[]. Non-object entries (bare refs) and non-multibase /
+// non-Ed25519 methods are skipped (fail-closed). v1: publicKeyMultibase only.
+export function didDocumentEd25519Keys(parsedDoc) {
+  const methods = Array.isArray(parsedDoc?.verificationMethod) ? parsedDoc.verificationMethod : [];
+  const keys = [];
+  for (const m of methods) {
+    const bytes = multibaseToEd25519Bytes(m?.publicKeyMultibase);
+    if (bytes) keys.push(bytes);
+  }
+  return keys;
+}
+
+// Does the published document advertise the DB key (base64url Ed25519)? Byte-compare.
+// Never throws on bad input.
+export function documentContainsKey(parsedDoc, dbPublicKeyBase64url) {
+  let dbBytes;
+  try { dbBytes = base64urlToBytes(dbPublicKeyBase64url); } catch { return false; }
+  if (dbBytes.length !== 32) return false;
+  return didDocumentEd25519Keys(parsedDoc).some((k) => bytesEqual(k, dbBytes));
+}
+
+// ---------------------------------------------------------------------------
 // Inverse of base58Encode() defined earlier. Decodes base58btc → raw bytes.
 const BASE58_DECODE_LUT = (() => {
   const m = new Int8Array(128).fill(-1);

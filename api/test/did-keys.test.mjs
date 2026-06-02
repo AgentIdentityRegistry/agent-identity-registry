@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { base58Encode, base58Decode, base64urlToBytes, ed25519ToMultibase, multibaseToEd25519Bytes } from "../src/did-keys.mjs";
+import { base58Encode, base58Decode, base64urlToBytes, ed25519ToMultibase, multibaseToEd25519Bytes, didDocumentEd25519Keys, documentContainsKey } from "../src/did-keys.mjs";
 
 // 32-byte key 0x00..0x1f as base64url (no padding). Self-checked below.
 const KEY_A = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8";
@@ -31,4 +31,55 @@ test("multibaseToEd25519Bytes: round-trip + all reject paths", () => {
   // correct length (34) but WRONG multicodec (X25519 0xec01, not Ed25519 0xed01) → null
   const wrongCodec = "z" + base58Encode(Uint8Array.from([0xec, 0x01, ...base64urlToBytes(KEY_A)]));
   assert.equal(multibaseToEd25519Bytes(wrongCodec), null);
+});
+
+// A second, distinct 32-byte key (0x20..0x3f) as base64url. Self-checked below.
+const KEY_B = "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8";
+
+// Build a did.json exactly like getDidDocument emits (api/src/index.js verificationMethod).
+function airStyleDoc(keyB64) {
+  const did = "did:wba:example.com:agents:AIR-XXXX-XXXX-XXXX";
+  return {
+    "@context": ["https://www.w3.org/ns/did/v1", "https://w3id.org/security/suites/ed25519-2020/v1"],
+    id: did,
+    verificationMethod: [{
+      id: `${did}#key-1`,
+      type: "Ed25519VerificationKey2020",
+      controller: did,
+      publicKeyMultibase: ed25519ToMultibase(keyB64),
+    }],
+    authentication: [`${did}#key-1`],
+    assertionMethod: [`${did}#key-1`],
+  };
+}
+
+test("documentContainsKey: fixtures are valid", () => {
+  assert.equal(base64urlToBytes(KEY_A).length, 32);
+  assert.equal(base64urlToBytes(KEY_B).length, 32);
+  assert.notDeepEqual([...base64urlToBytes(KEY_A)], [...base64urlToBytes(KEY_B)]);
+});
+
+test("documentContainsKey: matches the published key, rejects everything else", () => {
+  assert.equal(documentContainsKey(airStyleDoc(KEY_A), KEY_A), true);     // matches
+  assert.equal(documentContainsKey(airStyleDoc(KEY_B), KEY_A), false);    // DIFFERENT key
+  assert.equal(documentContainsKey({ verificationMethod: [] }, KEY_A), false); // empty
+  assert.equal(documentContainsKey({}, KEY_A), false);                    // absent verificationMethod
+  assert.equal(documentContainsKey({ verificationMethod: [{ type: "JsonWebKey2020", publicKeyJwk: { kty: "OKP" } }] }, KEY_A), false); // JWK-only
+  assert.equal(documentContainsKey({ verificationMethod: ["did:wba:x#k"] }, KEY_A), false); // bare-string ref
+  const multi = { verificationMethod: [
+    { type: "Ed25519VerificationKey2020", publicKeyMultibase: ed25519ToMultibase(KEY_B) },
+    { type: "Ed25519VerificationKey2020", publicKeyMultibase: ed25519ToMultibase(KEY_A) },
+  ] };
+  assert.equal(documentContainsKey(multi, KEY_A), true);                  // one of several
+  assert.equal(documentContainsKey(airStyleDoc(KEY_A), "!!!not-base64url!!!"), false); // bad DB key → false, no throw
+});
+
+test("didDocumentEd25519Keys: extracts valid keys, skips junk", () => {
+  const doc = { verificationMethod: [
+    { publicKeyMultibase: ed25519ToMultibase(KEY_A) },
+    "bare-ref",
+    { publicKeyJwk: { kty: "OKP" } },
+    { publicKeyMultibase: "z-not-valid" },
+  ] };
+  assert.equal(didDocumentEd25519Keys(doc).length, 1);
 });
