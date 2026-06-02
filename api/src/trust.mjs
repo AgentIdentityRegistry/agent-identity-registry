@@ -72,3 +72,31 @@ export function calculateInitialTrustScore(agent, peerSubscore = PEER_ATTEST_BAS
     peer_attestations,
   };
 }
+
+// ---- Verified status + earned-trust aggregate -----------------------------
+// Counts ACTIVE attestations whose ATTESTER is also active (dead-vouch filter,
+// security TODO #3): a vouch from a deleted/deactivated identity must not prop
+// up trust or Verified. Returns the frozen-weight aggregate used by BOTH the
+// Verified badge and the peer sub-score.
+export async function computeVerifiedStatus(subjectAirId, db) {
+  const result = await db.prepare(`
+    SELECT a.attester_whois_root, a.attester_trust_at_issue, a.tenure_multiplier_at_issue
+    FROM agent_attestations a
+    JOIN agents ag ON ag.air_id = a.attester_air_id
+    WHERE a.subject_air_id = ? AND a.revoked_at IS NULL AND ag.status = 'active'
+  `).bind(subjectAirId).all();
+
+  const list = result?.results ?? [];
+  let score = 0;
+  const roots = new Set();
+  for (const row of list) {
+    score += row.attester_trust_at_issue * row.tenure_multiplier_at_issue;
+    roots.add(row.attester_whois_root);
+  }
+  return {
+    verified: score >= 300 && roots.size >= 3,
+    verification_score: Math.round(score),
+    distinct_whois_roots: roots.size,
+    attestation_count: list.length,
+  };
+}

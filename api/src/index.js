@@ -5,7 +5,7 @@
 // hand-maintained source. Wrangler's [[rules]] type="Text" config in
 // wrangler.toml turns the .yaml import into a string at build time.
 import OPENAPI_YAML from "../openapi.yaml";
-import { calculateInitialTrustScore } from "./trust.mjs";
+import { calculateInitialTrustScore, computeVerifiedStatus } from "./trust.mjs";
 
 export default {
   async fetch(request, env) {
@@ -787,30 +787,6 @@ async function getAttesterEligibility(attesterAirId, db) {
     public_key: attester.public_key,
     creator_did: attester.creator_did,
     whois_root: whoisRoot,
-  };
-}
-
-// Compute Verified status for a subject from its active attestations.
-// Returns { verified, verification_score, distinct_whois_roots, attestation_count }.
-async function computeVerifiedStatus(subjectAirId, db) {
-  const result = await db.prepare(`
-    SELECT attester_whois_root, attester_trust_at_issue, tenure_multiplier_at_issue
-    FROM agent_attestations
-    WHERE subject_air_id = ? AND revoked_at IS NULL
-  `).bind(subjectAirId).all();
-
-  const list = result?.results ?? [];
-  let score = 0;
-  const roots = new Set();
-  for (const row of list) {
-    score += row.attester_trust_at_issue * row.tenure_multiplier_at_issue;
-    roots.add(row.attester_whois_root);
-  }
-  return {
-    verified: score >= 300 && roots.size >= 3,
-    verification_score: Math.round(score),
-    distinct_whois_roots: roots.size,
-    attestation_count: list.length,
   };
 }
 

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makeTestD1 } from "./helpers/d1.mjs";
-import { peerAttestationsSubscore, calculateInitialTrustScore, computeGrade } from "../src/trust.mjs";
+import { peerAttestationsSubscore, calculateInitialTrustScore, computeGrade, computeVerifiedStatus } from "../src/trust.mjs";
 
 // Minimal agent-row inserter used across tests.
 async function insertAgent(db, airId, overrides = {}) {
@@ -25,6 +25,18 @@ async function insertAgent(db, airId, overrides = {}) {
   ).bind(a.air_id, a.name, a.creator_did, a.creator_name, a.creator_type, a.status,
          a.created_at, a.updated_at, a.security_certifications, a.transparency_open_source).run();
   return a;
+}
+
+async function insertAttestation(db, { subject, attester, root, trust, tenure = 1.0, revokedAt = null }) {
+  await db.prepare(
+    `INSERT INTO agent_attestations
+       (subject_air_id, attester_air_id, attester_whois_root, attestation_type,
+        statement, signed_payload, signature_multibase, signed_at,
+        attester_trust_at_issue, tenure_multiplier_at_issue, revoked_at, created_at)
+     VALUES (?, ?, ?, 'identity_verification', '', '{}', ?, ?, ?, ?, ?, ?)`
+  ).bind(subject, attester, root,
+         `sig-${attester}-${subject}`, "2026-02-01T00:00:00.000Z",
+         trust, tenure, revokedAt, "2026-02-01T00:00:00.000Z").run();
 }
 
 test("harness: round-trips an agent against the real schema", async () => {
@@ -99,5 +111,22 @@ test("calculateInitialTrustScore: fully-maxed agent tops out at 645/BBB", () => 
   assert.equal(s.grade, "BBB");
 });
 
+test("computeVerifiedStatus: excludes deleted attesters and revoked rows", async () => {
+  const db = makeTestD1();
+  await insertAgent(db, "AIR-SUBJ-0000-0000");
+  await insertAgent(db, "AIR-ATT1-0000-0000", { status: "active" });
+  await insertAgent(db, "AIR-ATT2-0000-0000", { status: "active" });
+  await insertAgent(db, "AIR-ATT3-0000-0000", { status: "deleted" }); // gone
+  await insertAttestation(db, { subject: "AIR-SUBJ-0000-0000", attester: "AIR-ATT1-0000-0000", root: "a1.com", trust: 500 });
+  await insertAttestation(db, { subject: "AIR-SUBJ-0000-0000", attester: "AIR-ATT2-0000-0000", root: "a2.com", trust: 400 });
+  await insertAttestation(db, { subject: "AIR-SUBJ-0000-0000", attester: "AIR-ATT3-0000-0000", root: "a3.com", trust: 500 }); // active row, dead attester
+
+  const v = await computeVerifiedStatus("AIR-SUBJ-0000-0000", db);
+  assert.equal(v.attestation_count, 2);             // ATT3 excluded
+  assert.equal(v.distinct_whois_roots, 2);          // a1, a2 only
+  assert.equal(v.verification_score, 900);          // 500*1 + 400*1
+  assert.equal(v.verified, false);                  // needs ≥3 roots; ATT3's would-be 3rd root is dead
+});
+
 // exported for reuse by later test tasks
-export { insertAgent };
+export { insertAgent, insertAttestation };
