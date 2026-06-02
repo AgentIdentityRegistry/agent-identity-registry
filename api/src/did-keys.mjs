@@ -62,6 +62,21 @@ export function base64urlToBytes(s) {
   return out;
 }
 
+// Inverse of ed25519ToMultibase: "z6Mk…" → 32 raw key bytes, or null if not a
+// valid Ed25519 multibase value (wrong prefix, bad base58, wrong multicodec, wrong length).
+export function multibaseToEd25519Bytes(multibase) {
+  if (typeof multibase !== "string" || !multibase.startsWith("z")) return null;
+  // base58Decode is O(n²); an Ed25519 multibase value is ~48 chars. Cap input length
+  // BEFORE decoding so a crafted long string can't burn CPU (defense even if the
+  // DID_WBA_MAX_RESPONSE_BYTES cap is later raised).
+  if (multibase.length > 64) return null;
+  let decoded;
+  try { decoded = base58Decode(multibase.slice(1)); } catch { return null; }
+  // multicodec 0xed 0x01 + 32 key bytes
+  if (decoded.length !== 34 || decoded[0] !== 0xed || decoded[1] !== 0x01) return null;
+  return decoded.slice(2);
+}
+
 // Inverse of base58Encode() defined earlier. Decodes base58btc → raw bytes.
 const BASE58_DECODE_LUT = (() => {
   const m = new Int8Array(128).fill(-1);
