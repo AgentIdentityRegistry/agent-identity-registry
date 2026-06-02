@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://agentidentityregistry.org/specs/a2a/draft-1/envelope.schema.json",
+  "$id": "https://agentidentityregistry.org/specs/air/draft-1/envelope.schema.json",
   "title": "A2AEnvelope",
   "description": "JSON Schema (2020-12) for A2A Messaging Protocol draft-1 envelopes. Source of truth: v1.md §4.",
   "type": "object",

@@ -126,7 +126,7 @@ async function handleInbox(request, env, recipient_did) {
   }
 
   // Parse JSON to extract `id` + `from` for our metadata. The spec
-  // (agentidentityregistry.org/specs/a2a/draft-1 §4) names the envelope's
+  // (agentidentityregistry.org/specs/air/draft-1 §4) names the envelope's
   // own identifier `id`, so we read that. The relay internally calls the
   // same value `envelope_id` (DB column + API field name) because `id` is
   // ambiguous in API contexts.
@@ -431,7 +431,7 @@ async function handleHealth(env) {
       kv_replay_nonce: env.REPLAY_NONCE ? "bound" : "missing",
     },
     queue_stats,
-    docs: "https://agentidentityregistry.org/specs/a2a/draft-1/v1.md",
+    docs: "https://agentidentityregistry.org/specs/air/draft-1/v1.md",
   });
 }
 
@@ -547,7 +547,7 @@ export default {
           "GET  /pull/{recipient_did}?stream=1   (SSE)",
           "POST /ack/{recipient_did}",
         ],
-        spec: "https://agentidentityregistry.org/specs/a2a/draft-1/v1.md",
+        spec: "https://agentidentityregistry.org/specs/air/draft-1/v1.md",
       });
   },
 

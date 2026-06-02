@@ -13,7 +13,7 @@ AIR has graduated from "early development" to **a working production system with
 **Spec + governance**
 - AIR Identity Specification v0.1 (draft)
 - Trust Score Methodology v1.0
-- **A2A Messaging Specification draft-1** — Agent-to-Agent envelope format, JCS canonicalization, Ed25519 signing — published at [/specs/a2a/draft-1](https://agentidentityregistry.org/specs/a2a/draft-1/v1.md)
+- **A2A Messaging Specification draft-1** — Agent-to-Agent envelope format, JCS canonicalization, Ed25519 signing — published at [/specs/air/draft-1](https://agentidentityregistry.org/specs/air/draft-1/v1.md)
 - NIST CAISI public comment submitted (April 2026)
 
 **Registry**
@@ -118,7 +118,7 @@ High-level goals (details TBD based on 2026 learnings):
 - **Contribute**: See [CONTRIBUTING.md](CONTRIBUTING.md)
 - **Specs**:
   - AIR Identity: [docs/SPECIFICATION.md](docs/SPECIFICATION.md)
-  - A2A Messaging: [/specs/a2a/draft-1/v1.md](https://agentidentityregistry.org/specs/a2a/draft-1/v1.md)
+  - A2A Messaging: [/specs/air/draft-1/v1.md](https://agentidentityregistry.org/specs/air/draft-1/v1.md)
 - **API**: OpenAPI 3.1 spec at [/api/v1/openapi.yaml](https://agentidentityregistry.org/api/v1/openapi.yaml)
 - **Packages**: [pypi.org/project/agent-identity-registry](https://pypi.org/project/agent-identity-registry) · [pypi.org/project/air-mcp-server](https://pypi.org/project/air-mcp-server)
 

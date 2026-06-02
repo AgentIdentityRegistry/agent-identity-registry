@@ -2,7 +2,7 @@
 # validate.sh — A2A draft-1 envelope schema validation
 #
 # Usage: run from the repo root (~/air-site):
-#   bash specs/a2a/draft-1/validate.sh
+#   bash specs/air/draft-1/validate.sh
 #
 # Requires: Node.js with ajv@8 installed (npm install in repo root).
 # Exit code: 0 = all checks pass, 1 = any check fails.
@@ -10,15 +10,15 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-SCHEMA="specs/a2a/draft-1/envelope.schema.json"
-EXAMPLES_GLOB="specs/a2a/draft-1/examples/*.json"
+SCHEMA="specs/air/draft-1/envelope.schema.json"
+EXAMPLES_GLOB="specs/air/draft-1/examples/*.json"
 
 cd "$REPO_ROOT"
 
 echo "=== Check 1: Schema compiles (JSON Schema 2020-12) ==="
 node - <<'JS'
 const {Ajv2020} = require('ajv/dist/2020');
-const schema = require('./specs/a2a/draft-1/envelope.schema.json');
+const schema = require('./specs/air/draft-1/envelope.schema.json');
 const ajv = new Ajv2020({strict: true, allErrors: true});
 ajv.compile(schema);
 console.log('OK: schema compiled cleanly');
@@ -31,11 +31,11 @@ const {Ajv2020} = require('ajv/dist/2020');
 const fs = require('fs');
 const path = require('path');
 
-const schema = require('./specs/a2a/draft-1/envelope.schema.json');
+const schema = require('./specs/air/draft-1/envelope.schema.json');
 const ajv = new Ajv2020({strict: true, allErrors: true});
 const validate = ajv.compile(schema);
 
-const exDir = 'specs/a2a/draft-1/examples';
+const exDir = 'specs/air/draft-1/examples';
 const files = fs.readdirSync(exDir).filter(f => f.endsWith('.json')).sort();
 
 if (files.length !== 50) {
@@ -68,11 +68,11 @@ node - <<'JS'
 const {Ajv2020} = require('ajv/dist/2020');
 const fs = require('fs');
 
-const schema = require('./specs/a2a/draft-1/envelope.schema.json');
+const schema = require('./specs/air/draft-1/envelope.schema.json');
 const ajv = new Ajv2020({strict: true, allErrors: true});
 const validate = ajv.compile(schema);
 
-const bad = JSON.parse(fs.readFileSync('specs/a2a/draft-1/examples/offer-01.json', 'utf8'));
+const bad = JSON.parse(fs.readFileSync('specs/air/draft-1/examples/offer-01.json', 'utf8'));
 bad.extra_field = 1;
 
 if (!validate(bad)) {
