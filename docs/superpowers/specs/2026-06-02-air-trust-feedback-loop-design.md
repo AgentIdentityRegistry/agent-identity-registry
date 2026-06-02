@@ -1,7 +1,7 @@
 # Design Spec — #3 Trust Feedback Loop (earned trust from peer attestations)
 
 - **Date:** 2026-06-02
-- **Status:** Approved design (pre-implementation) — incorporates independent critic review (verdict: APPROVE-WITH-CHANGES, 2026-06-02)
+- **Status:** Implemented on branch feat/trust-feedback-loop (pending deploy) — design approved + independent critic review (APPROVE-WITH-CHANGES, 2026-06-02); built TDD with per-task spec + code-quality review
 - **Component:** AIR registry worker — `api/src/index.js`
 - **Related:** [air/trust-graph-coldstart-2026-06-02] (GBrain) — security TODO #3. Sibling item #4 (resolved-key check) is a separate spec/session.
 - **Migration required:** none (schema unchanged)
