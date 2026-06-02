@@ -78,6 +78,8 @@ export function calculateInitialTrustScore(agent, peerSubscore = PEER_ATTEST_BAS
 // security TODO #3): a vouch from a deleted/deactivated identity must not prop
 // up trust or Verified. Returns the frozen-weight aggregate used by BOTH the
 // Verified badge and the peer sub-score.
+// The INNER JOIN also drops attestations whose attester row is gone entirely
+// (orphaned attester_air_id) — a vanished attester counts as not-active.
 export async function computeVerifiedStatus(subjectAirId, db) {
   const result = await db.prepare(`
     SELECT a.attester_whois_root, a.attester_trust_at_issue, a.tenure_multiplier_at_issue

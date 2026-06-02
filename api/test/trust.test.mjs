@@ -27,6 +27,7 @@ async function insertAgent(db, airId, overrides = {}) {
   return a;
 }
 
+let _sigSeq = 0;
 async function insertAttestation(db, { subject, attester, root, trust, tenure = 1.0, revokedAt = null }) {
   await db.prepare(
     `INSERT INTO agent_attestations
@@ -35,7 +36,7 @@ async function insertAttestation(db, { subject, attester, root, trust, tenure = 
         attester_trust_at_issue, tenure_multiplier_at_issue, revoked_at, created_at)
      VALUES (?, ?, ?, 'identity_verification', '', '{}', ?, ?, ?, ?, ?, ?)`
   ).bind(subject, attester, root,
-         `sig-${attester}-${subject}`, "2026-02-01T00:00:00.000Z",
+         `sig-${attester}-${subject}-${_sigSeq++}`, "2026-02-01T00:00:00.000Z",
          trust, tenure, revokedAt, "2026-02-01T00:00:00.000Z").run();
 }
 
