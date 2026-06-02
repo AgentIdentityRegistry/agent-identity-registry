@@ -72,6 +72,15 @@ test("documentContainsKey: matches the published key, rejects everything else", 
   ] };
   assert.equal(documentContainsKey(multi, KEY_A), true);                  // one of several
   assert.equal(documentContainsKey(airStyleDoc(KEY_A), "!!!not-base64url!!!"), false); // bad DB key → false, no throw
+  // null / undefined document → false (Task 4 passes wba.document, which may be null)
+  assert.equal(documentContainsKey(null, KEY_A), false);
+  assert.equal(documentContainsKey(undefined, KEY_A), false);
+  // cryptographic exactness: a doc advertising KEY_A with ONE byte flipped → false
+  const aBytes = base64urlToBytes(KEY_A);
+  const offByOne = new Uint8Array(aBytes);
+  offByOne[0] ^= 0x01;
+  const offB64 = btoa(String.fromCharCode(...offByOne)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  assert.equal(documentContainsKey(airStyleDoc(offB64), KEY_A), false);
 });
 
 test("didDocumentEd25519Keys: extracts valid keys, skips junk", () => {
@@ -82,4 +91,5 @@ test("didDocumentEd25519Keys: extracts valid keys, skips junk", () => {
     { publicKeyMultibase: "z-not-valid" },
   ] };
   assert.equal(didDocumentEd25519Keys(doc).length, 1);
+  assert.deepEqual([...didDocumentEd25519Keys(doc)[0]], [...base64urlToBytes(KEY_A)]);
 });

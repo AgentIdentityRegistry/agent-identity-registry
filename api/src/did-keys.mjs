@@ -111,6 +111,9 @@ export function documentContainsKey(parsedDoc, dbPublicKeyBase64url) {
 }
 
 // ---------------------------------------------------------------------------
+// Base58btc decoder
+// ---------------------------------------------------------------------------
+
 // Inverse of base58Encode() defined earlier. Decodes base58btc → raw bytes.
 const BASE58_DECODE_LUT = (() => {
   const m = new Int8Array(128).fill(-1);
