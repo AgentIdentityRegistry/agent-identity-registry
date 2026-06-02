@@ -120,6 +120,9 @@ test("computeVerifiedStatus: excludes deleted attesters and revoked rows", async
   await insertAttestation(db, { subject: "AIR-SUBJ-0000-0000", attester: "AIR-ATT1-0000-0000", root: "a1.com", trust: 500 });
   await insertAttestation(db, { subject: "AIR-SUBJ-0000-0000", attester: "AIR-ATT2-0000-0000", root: "a2.com", trust: 400 });
   await insertAttestation(db, { subject: "AIR-SUBJ-0000-0000", attester: "AIR-ATT3-0000-0000", root: "a3.com", trust: 500 }); // active row, dead attester
+  await insertAgent(db, "AIR-ATT4-0000-0000", { status: "active" });
+  // ATT4 is an ACTIVE attester but its attestation is REVOKED → excluded by `revoked_at IS NULL`.
+  await insertAttestation(db, { subject: "AIR-SUBJ-0000-0000", attester: "AIR-ATT4-0000-0000", root: "a4.com", trust: 500, revokedAt: "2026-03-01T00:00:00.000Z" });
 
   const v = await computeVerifiedStatus("AIR-SUBJ-0000-0000", db);
   assert.equal(v.attestation_count, 2);             // ATT3 excluded
