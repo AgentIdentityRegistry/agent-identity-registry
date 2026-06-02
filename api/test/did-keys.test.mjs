@@ -28,4 +28,7 @@ test("multibaseToEd25519Bytes: round-trip + all reject paths", () => {
   // wrong multicodec: encode the 32-byte payload WITHOUT the 0xed01 prefix
   const noPrefix = "z" + base58Encode(base64urlToBytes(KEY_A));
   assert.equal(multibaseToEd25519Bytes(noPrefix), null);
+  // correct length (34) but WRONG multicodec (X25519 0xec01, not Ed25519 0xed01) → null
+  const wrongCodec = "z" + base58Encode(Uint8Array.from([0xec, 0x01, ...base64urlToBytes(KEY_A)]));
+  assert.equal(multibaseToEd25519Bytes(wrongCodec), null);
 });
