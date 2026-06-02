@@ -5,7 +5,7 @@
 // hand-maintained source. Wrangler's [[rules]] type="Text" config in
 // wrangler.toml turns the .yaml import into a string at build time.
 import OPENAPI_YAML from "../openapi.yaml";
-import { base58Decode, base64urlToBytes, ed25519ToMultibase } from "./did-keys.mjs";
+import { base58Decode, base64urlToBytes, ed25519ToMultibase, documentContainsKey } from "./did-keys.mjs";
 import { calculateInitialTrustScore, computeVerifiedStatus, recomputeTrustScore, recomputeDependentsOf } from "./trust.mjs";
 
 export default {
@@ -343,11 +343,13 @@ async function resolveDidWba(did, db) {
   // generic HTTP path can never resolve them. The agent existing + active + having a
   // public_key IS the proof its DID document (AIR spec §3.3) would resolve.
   // See air/trust-graph-coldstart-2026-06-02.
-  if (
-    parsed.domain === "agentidentityregistry.org" &&
-    parsed.pathSegments.length === 2 &&
-    parsed.pathSegments[0] === "agents"
-  ) {
+  if (parsed.domain === "agentidentityregistry.org") {
+    // Any did:wba on OUR domain MUST be the canonical agents:{air_id} shape, resolved
+    // via direct DB check — never an HTTP self-fetch. Reject anything else at the source
+    // so a future catch-all/SPA route on this domain can't become a key-substitution vector.
+    if (parsed.pathSegments.length !== 2 || parsed.pathSegments[0] !== "agents") {
+      return { resolved: false, url: "(local)", error: "non-canonical AIR-domain did:wba (expected agents:{air_id})" };
+    }
     if (!db) {
       return { resolved: false, url: "(local)", error: "AIR-minted DID resolution needs a DB handle" };
     }
@@ -419,13 +421,15 @@ async function resolveDidWba(did, db) {
     }
     const text = new TextDecoder().decode(merged);
 
-    // Best-effort JSON parse — contents not validated in v1
+    // Parse the DID document and KEEP it — the caller binds the published key to
+    // AIR's record (#4 resolved-key check). A non-JSON body still fails closed.
+    let document;
     try {
-      JSON.parse(text);
+      document = JSON.parse(text);
     } catch {
       return { resolved: false, url, error: "response is not valid JSON" };
     }
-    return { resolved: true, url };
+    return { resolved: true, url, document };
   } catch (e) {
     clearTimeout(timeoutId);
     const error = e.name === "AbortError" ? "timeout after " + DID_WBA_TIMEOUT_MS + "ms" : e.message || "network error";
@@ -648,6 +652,12 @@ async function getAttesterEligibility(attesterAirId, db) {
   const wba = await resolveDidWba(attester.creator_did, db);
   if (!wba.resolved) {
     return { eligible: false, reason: `Lock 1: did:wba live resolution failed (${wba.error})` };
+  }
+  // Lock 1 key binding (#4): for an EXTERNAL did:wba, the freshly-resolved document
+  // must advertise the key we verify signatures against. AIR-minted DIDs return no
+  // `document` (self-consistent by construction) and skip this.
+  if (wba.document && !documentContainsKey(wba.document, attester.public_key)) {
+    return { eligible: false, reason: "Lock 1: published did.json does not advertise the registered public key" };
   }
 
   // Lock 3a: tenure ≥30 days
@@ -2008,7 +2018,7 @@ async function reResolveAllDidWba(db) {
   const startedAt = Date.now();
 
   const { results: agents } = await db.prepare(
-    `SELECT air_id, creator_did
+    `SELECT air_id, creator_did, public_key
      FROM agents
      WHERE status = 'active' AND creator_did LIKE 'did:wba:%'`
   ).all();
@@ -2037,19 +2047,23 @@ async function reResolveAllDidWba(db) {
     for (let j = 0; j < batch.length; j++) {
       const agent = batch[j];
       const settled = results[j];
-      const resolvedBool =
+      let resolvedBool =
         settled.status === "fulfilled" ? !!settled.value.resolved : false;
+      let reason = settled.status === "fulfilled"
+        ? (settled.value.error || "unknown")
+        : "threw: " + ((settled.reason && settled.reason.message) || settled.reason);
+      // #4 key-binding drift: a resolved EXTERNAL doc that does not advertise the
+      // agent's registered key is flagged (distinct from an unreachable host).
+      if (resolvedBool && settled.status === "fulfilled" && settled.value.document &&
+          !documentContainsKey(settled.value.document, agent.public_key)) {
+        resolvedBool = false;
+        reason = "did:wba key drift (published did.json does not advertise the registered key)";
+      }
       if (resolvedBool) {
         summary.resolved++;
       } else {
         summary.unresolved++;
-        if (errorSamples.size < 5) {
-          errorSamples.add(
-            settled.status === "fulfilled"
-              ? (settled.value.error || "unknown")
-              : "threw: " + ((settled.reason && settled.reason.message) || settled.reason)
-          );
-        }
+        if (errorSamples.size < 5) errorSamples.add(reason);
       }
 
       try {
