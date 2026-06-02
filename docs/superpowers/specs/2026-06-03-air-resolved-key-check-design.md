@@ -1,7 +1,7 @@
 # Design Spec — #4 Resolved-Key Check (Lock 1 did:wba key binding)
 
 - **Date:** 2026-06-03
-- **Status:** Approved design (pre-implementation)
+- **Status:** Approved design (pre-implementation) — incorporates independent critic review (verdict: APPROVE-WITH-CHANGES, 2026-06-03): canonical-AIR-domain hard-reject, cron `public_key` SELECT, base58 length guard, residual-risk + edge-case notes
 - **Component:** AIR registry worker — `api/src/index.js` (+ new `api/src/did-keys.mjs`)
 - **Related:** [air/trust-graph-coldstart-2026-06-02] (GBrain) — security TODO #4. Sibling item #3 (trust feedback loop) shipped on branch `feat/trust-feedback-loop` (PR #1); #4 branches from there and deploys together.
 - **Migration required:** none (schema unchanged; `did_wba_resolved` already exists)
@@ -21,9 +21,9 @@
 |---|---|---|
 | Mismatch policy | **Reject, fail-closed** | Whoever controls the agent's website/DID host must NEVER be able to silently change which key AIR trusts. The published document must match AIR's record, not override it. (Auto-rotation would make the website the root of trust — rejected.) |
 | Enforcement points | **Attestation Lock 1** (hard reject) + **weekly did:wba cron** (flag `did_wba_resolved=0` on drift) | Lock 1 is the trust-critical path (a vouch's weight depends on key control). The cron already resolves every DID weekly — flagging drift there is near-free and surfaces tampering even for agents not currently vouching. |
-| AIR-minted DIDs | **No-op** | Self-consistent by construction; no `document` returned from the direct-DB path → binding skipped. |
+| AIR-minted DIDs | **No-op, AND hard-reject non-canonical AIR-domain DIDs** | The canonical `agents:{id}` shape resolves via direct DB check (no `document` → binding skipped, self-consistent). Any OTHER `agentidentityregistry.org` did:wba is rejected at the source so it can never take the HTTP self-fetch path — defense-in-depth so a future catch-all/SPA route can't turn a self-domain `did.json` into a key-substitution vector. |
 | Key format | **`publicKeyMultibase`** (Ed25519VerificationKey2020), byte-compared | The form AIR itself publishes and the dominant external Ed25519 form. JWK-only docs are treated as unsupported → reject (fail-closed). |
-| Match rule | DB key (raw 32 bytes) ∈ the Ed25519 keys decoded from the document's `verificationMethod[]` | Presence in the published document proves the agent advertises AIR's key. |
+| Match rule | DB key (raw 32 bytes) ∈ the Ed25519 keys decoded from the document's `verificationMethod[]` | Presence in the published document proves the agent advertises AIR's key. **Residual risk (accepted v1):** a key published in `verificationMethod` for a non-assertion purpose would still satisfy the binding — accepted because signing still requires the private key; v2 may tighten to `assertionMethod`-referenced keys. |
 | Schema | **No change** | `did_wba_resolved` already exists for the cron flag. |
 
 ## Design
@@ -48,6 +48,10 @@ Mirrors #3's `trust.mjs` extraction: move the existing DID-key encoding helpers 
 // multicodec, or wrong length).
 export function multibaseToEd25519Bytes(multibase) {
   if (typeof multibase !== "string" || !multibase.startsWith("z")) return null;
+  // Length guard: an Ed25519 multibase value is ~48 chars. base58Decode is O(n²),
+  // so cap input length BEFORE decoding. The 8 KB response cap already bounds total
+  // work, but this guard keeps it bounded even if DID_WBA_MAX_RESPONSE_BYTES is raised.
+  if (multibase.length > 64) return null;
   let decoded;
   try { decoded = base58Decode(multibase.slice(1)); } catch { return null; }
   // multicodec 0xed 0x01 + 32 key bytes
@@ -77,9 +81,26 @@ export function documentContainsKey(parsedDoc, dbPublicKeyBase64url) {
 ```
 (`bytesEqual` is a small local Uint8Array comparison helper — not timing-sensitive; these are public keys.)
 
-### `resolveDidWba` — return the document instead of discarding it
+### `resolveDidWba` — hard-reject non-canonical AIR-domain DIDs, and return the document
 
-External path only: replace the throwaway `JSON.parse(text)` (`api/src/index.js:421-426`) with a parse that keeps the object and returns it. New return on success: `{ resolved: true, url, document }`. On parse failure: unchanged (`{ resolved: false, url, error: "response is not valid JSON" }`). The AIR-minted branch returns `{ resolved: true, url }` (no `document`) — unchanged. All existing fetch/redirect/content-type/byte-cap guards stay exactly as they are.
+**(a) Canonical-shape gate (new, defense-in-depth — Finding #1).** Widen the existing `agentidentityregistry.org` branch (`api/src/index.js:345-364`) so that ANY did:wba on our own domain that is NOT the canonical `agents:{air_id}` shape is rejected at the source — it must never fall through to the HTTP self-fetch path:
+
+```js
+if (parsed.domain === "agentidentityregistry.org") {
+  // Any did:wba on OUR domain MUST be the canonical agents:{air_id} shape, resolved
+  // via direct DB check — never an HTTP self-fetch. Reject anything else at the source
+  // so a future catch-all/SPA route on this domain can't become a key-substitution vector.
+  if (parsed.pathSegments.length !== 2 || parsed.pathSegments[0] !== "agents") {
+    return { resolved: false, url: "(local)", error: "non-canonical AIR-domain did:wba (expected agents:{air_id})" };
+  }
+  // …existing direct-DB check (agent active + has public_key) → { resolved: true, url } …
+}
+```
+(If a future AIR-hosted namespace like `orgs:{id}` is added, extend this gate then.)
+
+**(b) Return the document (external path only).** Replace the throwaway `JSON.parse(text)` (`api/src/index.js:421-426`) with a parse that keeps the object and returns it. New return on success: `{ resolved: true, url, document }`. On parse failure: unchanged (`{ resolved: false, url, error: "response is not valid JSON" }`). The AIR-minted canonical branch returns `{ resolved: true, url }` (no `document`) — unchanged. All existing fetch/redirect/content-type/byte-cap guards stay exactly as they are.
+
+**Return-shape safety:** the 3 callers were verified — `getAttesterEligibility` (`:742`) reads `.resolved` then (new) `.document`; registration (`:1109`) and the cron (`:2134`) read only `.resolved`. No caller breaks. Keep the AIR-minted branch's return free of a `document` key (do NOT add `document: null`); the `if (wba.document && …)` guard treats absent/undefined as "skip binding."
 
 ### `getAttesterEligibility` — enforce the binding at Lock 1
 
@@ -97,7 +118,11 @@ A document that fetched fine but lacks the key → Lock 1 ineligible (a clean 40
 
 ### Weekly cron `reResolveAllDidWba` — flag drift
 
-When resolving an external did:wba agent, if `wba.resolved` but `wba.document` does not contain the agent's `public_key`, record `did_wba_resolved = 0` (treat a key-binding failure as not-resolved) and include the reason in the cron run summary (the existing `sample_errors` aggregation). AIR-minted agents (no `document`) keep their current direct-DB resolution result.
+When resolving an external did:wba agent, if `wba.resolved` but `wba.document` does not contain the agent's `public_key`, record `did_wba_resolved = 0` (treat a key-binding failure as not-resolved) and include a DISTINCT reason in the cron run summary (the existing `sample_errors` aggregation) so a drifted key is distinguishable from an unreachable host. AIR-minted agents (no `document`) keep their current direct-DB resolution result.
+
+**Implementer trap (Finding — cron SELECT):** the cron's agent query (`api/src/index.js:~2104`) currently selects only `air_id, creator_did`. The binding check needs the key to compare against — **add `public_key` to that SELECT**, or `documentContainsKey(doc, undefined)` always returns false and every external agent would be wrongly flagged drifted. `documentContainsKey` returning false on a missing key is fail-safe, but the SELECT must include `public_key` for the check to be meaningful.
+
+**Flag-semantics note:** `did_wba_resolved` is informational only — its sole reader is the `getAgent` response (`api/src/index.js:~847`); it gates nothing in eligibility (Lock 1 re-resolves live every time). Conflating "unreachable" and "key-drifted" into `0` is therefore behaviorally safe; the distinct cron-summary reason preserves the operator signal. (Verify no SDK/mcp-server consumer treats `did_wba_resolved=0` as specifically "unreachable" — a 30-second grep of those trees during implementation.)
 
 ## Data flow
 
@@ -117,16 +142,18 @@ weekly cron → for each did:wba agent → resolveDidWba
 - Document fetched but missing the key → Lock 1 ineligible (403 via createAttestation), NOT a 500.
 - Document with no parseable Ed25519 `verificationMethod` (e.g. JWK-only, empty) → `documentContainsKey` returns false → reject ("does not advertise the registered public key"). Fail-closed.
 - Malformed `publicKeyMultibase` entries are skipped individually (don't throw); if none match → reject.
-- `documentContainsKey` never throws on bad input (bad base64url DB key → false). Defensive by contract.
-- All existing resolution guards (redirect/content-type/byte-cap/timeout) unchanged.
+- Non-object `verificationMethod` entries (bare DID-URL ref strings) → `m?.publicKeyMultibase` is `undefined` → `multibaseToEd25519Bytes(undefined)` returns null → entry skipped. Handled, fail-closed.
+- `documentContainsKey` never throws on bad input (bad base64url DB key → false; empty-string multibase → null). Defensive by contract.
+- `base58Decode` is O(n²); the `multibase.length > 64` guard + the 8 KB response cap bound its work. If the response cap is ever raised, the length guard still holds.
+- All existing resolution guards (redirect/content-type/byte-cap/timeout) unchanged. Byte-cap truncation of a large `did.json` → `JSON.parse` fails → `{resolved:false}` (fail-closed; a decoy-early/real-late layout that truncates the real key away simply fails to parse, never a false pass).
 
 ## Testing (node:sqlite harness reused for any DB bits; pure-function tests for the core)
 
 Pure (no DB, no fetch) — the security core:
-1. `multibaseToEd25519Bytes(ed25519ToMultibase(k)) === k` (round-trip) for a known 32-byte key; returns null for non-`z`, bad base58, wrong multicodec, wrong length.
-2. `documentContainsKey`: true when the doc's `verificationMethod` includes the DB key; false when it advertises a DIFFERENT key; false for a JWK-only doc; false for an empty/absent `verificationMethod`; true when the key is one of several methods.
-3. `didDocumentEd25519Keys`: extracts N keys, skips malformed/non-Ed25519 entries.
-4. A realistic AIR-style did.json fixture (the exact shape `getDidDocument` emits) → `documentContainsKey` true for that agent's key.
+1. `multibaseToEd25519Bytes(ed25519ToMultibase(k)) === k` (round-trip) for a known 32-byte key; returns null for: non-`z` prefix, bare `"z"` (empty body → length 0), bad base58 chars, wrong multicodec, wrong length, and an over-64-char string (length guard).
+2. `documentContainsKey`: true when the doc's `verificationMethod` includes the DB key; false when it advertises a DIFFERENT key; false for a JWK-only doc; false for an empty/absent `verificationMethod`; false when `verificationMethod` contains bare-string refs only; true when the key is one of several methods.
+3. `didDocumentEd25519Keys`: extracts N keys, skips malformed/non-Ed25519/string-ref entries.
+4. A did.json fixture built from the EXACT object `getDidDocument` emits (`api/src/index.js:~888-924`: `type:"Ed25519VerificationKey2020"`, `publicKeyMultibase: ed25519ToMultibase(agent.public_key)`) → `documentContainsKey` true for that agent's key. Replicate/import the real shape (don't hand-roll) so field-name drift (e.g. `…2020` vs `…2018`) is caught.
 
 **Coverage boundary (stated honestly, as in #3):** `resolveDidWba`'s `fetch()` branch and `getAttesterEligibility`'s external path are not unit-tested by the node:sqlite harness (no HTTP mock). The pure binding logic is exhaustively tested; the HTTP wiring is thin and verified by `wrangler deploy --dry-run` + a manual live probe + the weekly cron exercising it. No HTTP-handler test harness is introduced.
 
