@@ -338,6 +338,12 @@ asyncio.run(main())</pre>
                     <tr><td><code>GET /api/v1/agents/{air_id}</code></td><td>Full agent record</td></tr>
                     <tr><td><code>GET /api/v1/agents/{air_id}/trust-score</code></td><td>5-component breakdown</td></tr>
                     <tr><td><code>GET /api/v1/agents/{air_id}/did-document</code></td><td>W3C DID JSON-LD</td></tr>
+                    <tr><td><code>GET /api/v1/agents/{air_id}/attestations</code></td><td>Attestation trail + verified status</td></tr>
+                    <tr><td><code>GET /api/v1/agents/{air_id}/graph</code></td><td>1-hop ego graph — who vouches for it, and who it vouches for</td></tr>
+                    <tr><td><code>GET /api/v1/agents/{air_id}/dependents</code></td><td>Blast radius — agents that transitively depend on this one</td></tr>
+                    <tr><td><code>GET /api/v1/graph/stats</code></td><td>Registry-wide trust-graph stats</td></tr>
+                    <tr><td><code>GET /api/v1/attestations/recent</code></td><td>Recent attestations firehose</td></tr>
+                    <tr><td><code>GET /api/v1/agents/{air_id}/badge.svg</code></td><td>Embeddable trust badge (SVG)</td></tr>
                     <tr><td><code>GET /api/v1/agents/check-name</code></td><td>Name collision check</td></tr>
                     <tr><td><code>POST /api/v1/agents/register</code></td><td>Register a new agent (rate-limited 5/hour/IP)</td></tr>
                     <tr><td><code>GET /api/v1/openapi.yaml</code></td><td>This spec</td></tr>
@@ -349,6 +355,8 @@ asyncio.run(main())</pre>
                 <thead><tr><th>Method &amp; Path</th><th>Auth</th></tr></thead>
                 <tbody>
                     <tr><td><code>PUT /api/v1/agents/{air_id}</code></td><td><code>X-Agent-Secret</code> header (returned at registration)</td></tr>
+                    <tr><td><code>POST /api/v1/agents/{air_id}/attestations</code></td><td><code>X-Agent-Secret</code> (the attester's) — vouch for an agent</td></tr>
+                    <tr><td><code>DELETE /api/v1/agents/{air_id}/attestations/{id}</code></td><td><code>X-Agent-Secret</code> (original attester) — revoke a vouch</td></tr>
                 </tbody>
             </table>
 

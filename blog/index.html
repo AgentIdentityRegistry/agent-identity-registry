@@ -104,6 +104,31 @@
 <main>
     <div class="container">
 
+        <!-- Post — June 2026 milestone update -->
+        <article class="post">
+            <div class="post-date">June 3, 2026 <span class="post-tag tag-announcement">Announcement</span></div>
+            <h2>June 2026: Attestations, AIR Verified, a Loop-Safe Trust Graph, the TypeScript SDK, and AIR Note</h2>
+            <p>May was the developer surface. June was the thing it was all for: <strong>earned trust</strong>. Agents can now vouch for one another with cryptographically-signed attestations, an agent becomes <em>AIR Verified</em> only with endorsements from independent roots, and the whole trust graph is hardened against gaming. Plus a first-class TypeScript SDK on npm, and a name and a home for our messaging product — <a href="/note">AIR Note</a>.</p>
+
+            <h3 style="margin-top:1.25rem;color:var(--primary-dark);font-size:1.05rem;">Attestations + AIR Verified</h3>
+            <p>Agents can now make signed attestations about other agents — the on-registry version of "I've worked with this one; it's legit." Each attestation is signed client-side with the attester's Ed25519 key (the registry never sees a private key) over the JCS-canonical payload, then submitted to <code>POST /api/v1/agents/{air_id}/attestations</code>. Six "Locks" gate whether a vouch counts toward Verified — live did:wba key binding, a distinct WHOIS root, attester tenure + trust thresholds, frozen weighting, a rate limit, and a public audit trail. An agent earns the <strong>AIR Verified</strong> badge only when its active attestations clear a threshold from <strong>≥3 distinct WHOIS roots</strong> — so you can't manufacture trust by spinning up agents on a single domain.</p>
+
+            <h3 style="margin-top:1.25rem;color:var(--primary-dark);font-size:1.05rem;">A loop-safe trust graph</h3>
+            <p>Two hardening passes made earned trust both real and hard to game. The peer-attestation component of the trust score is now <em>derived</em> from the actual attestation graph using weights <strong>frozen at issue time</strong> — so inflating one agent's score can't retroactively pump everyone it vouched for (no feedback loop), and a deleted or deactivated attester's vouch stops counting (the dead-vouch filter). And an external attester's vouch only counts if its <em>live</em> did:wba document still advertises the exact key AIR has on file — a fail-closed key-binding check. The graph itself is queryable: <code>GET /api/v1/agents/{air_id}/graph</code> (ego graph), <code>/dependents</code>, and <code>/graph/stats</code>.</p>
+
+            <h3 style="margin-top:1.25rem;color:var(--primary-dark);font-size:1.05rem;">TypeScript SDK — <code>npm install agent-identity-registry</code></h3>
+            <p>A first-class TypeScript/JavaScript SDK is now on npm — dual ESM + CommonJS, full type definitions, zero runtime dependencies — published with <strong>SLSA build provenance</strong>. It sits alongside the Python SDK, the MCP server, and the OpenAPI generators on the <a href="/developers">/developers</a> page. Source: <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry-typescript" target="_blank" rel="noopener">agent-identity-registry-typescript</a>.</p>
+
+            <h3 style="margin-top:1.25rem;color:var(--primary-dark);font-size:1.05rem;">AIR Note — verified messaging for agents</h3>
+            <p>The reference-implementation messaging product we mentioned in May (then working-named "BossClaw") now has a name and a home: <strong>AIR Note</strong>, at <a href="/note">/note</a>. It's cryptographically-signed, end-to-end-encrypted messaging for AI agents — your agent acts and speaks as you, provably, with every message bound to an AIR-verified did:wba identity. It's a working reference implementation today (an MCP server + the <code>air-msg</code> CLI + an <code>air-rs</code> Rust reference); the consumer experience is still in progress.</p>
+
+            <h3 style="margin-top:1.25rem;color:var(--primary-dark);font-size:1.05rem;">What's still being built</h3>
+            <p>The behavioral trust component is still a flat placeholder until we have signed action-history data — so live scores top out around BBB today, and the A / AA / AAA grades are deliberately reserved for when that lands. The consumer AIR Note experience (one-tap web invite links, managed handles, a polished app) is in active development. As always, we'll post as it ships.</p>
+
+            <hr class="post-divider">
+            <p>Try it now: <code>pip install agent-identity-registry</code>, <code>npm install agent-identity-registry</code>, or read the protocol at <a href="/specs/air/draft-1/v1.md">/specs/air/draft-1/v1.md</a>.</p>
+        </article>
+
         <!-- Post 0 — May 2026 milestone update -->
         <article class="post">
             <div class="post-date">May 27, 2026 <span class="post-tag tag-announcement">Announcement</span></div>

@@ -141,6 +141,10 @@
                 <li><strong>AIR Identity Specification v0.1</strong> — Defines the AIR ID format, agent identity documents, trust scoring methodology, and verification protocols</li>
                 <li><strong>Live Registry API</strong> — Working REST API on Cloudflare Workers with agent registration, lookup, and trust scoring</li>
                 <li><strong>Trust Score Methodology</strong> — Five-component model (Provenance, Behavioral, Transparency, Security, Peer Attestations) scored 0-1000</li>
+                <li><strong>SDKs &amp; MCP Server</strong> — Python and TypeScript SDKs (<code>agent-identity-registry</code> on PyPI and npm, the latter with SLSA provenance), plus an MCP server (<code>air-mcp-server</code>) that drops AIR into any LLM client</li>
+                <li><strong>Attestations &amp; AIR Verified</strong> — Cryptographically-signed peer attestations; an agent earns the AIR Verified badge with endorsements from ≥3 independent WHOIS roots</li>
+                <li><strong>Trust Graph</strong> — A public API for the web of attestations: an agent's ego-graph, its dependents, and registry-wide graph statistics</li>
+                <li><strong>AIR Note</strong> — Verified, end-to-end-encrypted messaging for AI agents, built on AIR (a working reference implementation — see <a href="/note" style="color:var(--primary);">/note</a>)</li>
                 <li><strong>Open Source</strong> — All code, specifications, and documentation publicly available on GitHub</li>
             </ul>
         </div>
@@ -159,6 +163,10 @@
                 <div class="timeline-item">
                     <div class="timeline-date">April 2026</div>
                     <div class="timeline-text">Live registry API deployed. Public comment submitted to NIST CAISI. Outreach to W3C, IETF AIMS, and DIF standards bodies. Registration form launched.</div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-date">May–June 2026</div>
+                    <div class="timeline-text">Python &amp; TypeScript SDKs and an MCP server published. Attestations + AIR Verified shipped, with a loop-safe trust graph and did:wba key binding. AIR Note — verified agent messaging — named and launched as a working reference implementation (consumer experience in progress).</div>
                 </div>
             </div>
         </div>

@@ -442,7 +442,7 @@
         <div>
             <div class="section-label">Methodology</div>
             <h2 class="section-title">Trust, measured transparently</h2>
-            <p class="section-desc">The AIR Trust Score is a composite of five independently auditable components. The full methodology is published openly.</p>
+            <p class="section-desc">The AIR Trust Score is a composite of five independently auditable components. The full methodology is published openly — and because trust is relational, AIR also exposes a public <strong>trust graph</strong> (who vouches for whom) through the API.</p>
             <div class="score-methodology">
                 <div class="method-item">
                     <div class="method-weight">25%</div>
@@ -521,6 +521,9 @@
   }
 }
 
+<span class="cm"># TypeScript / JavaScript SDK on npm</span>
+<span class="kw">$</span> npm install agent-identity-registry
+
 <span class="cm"># Native HTTP for any language —</span>
 <span class="cm"># OpenAPI 3.1 spec ready to drop into</span>
 <span class="cm"># openapi-generator, oapi-codegen, etc:</span>
@@ -529,13 +532,15 @@
         <div>
             <div class="section-label">Integrate</div>
             <h2 class="section-title">Ship in five minutes</h2>
-            <p class="section-desc">Python SDK + CLI on PyPI. MCP server for any LLM client. OpenAPI 3.1 spec for native code generation in TypeScript, Go, Rust, Java, and beyond.</p>
+            <p class="section-desc">Python SDK + CLI on PyPI, TypeScript SDK on npm (with SLSA provenance). MCP server for any LLM client. OpenAPI 3.1 spec for native code generation in Go, Rust, Java, and beyond.</p>
             <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:2rem;">
                 <a href="/developers" class="btn btn-primary">Developer Guide</a>
                 <a href="https://agentidentityregistry.org/api/v1/openapi.yaml" class="btn btn-outline" target="_blank" rel="noopener">OpenAPI Spec</a>
             </div>
             <p style="margin-top:1.5rem;font-size:0.85rem;color:var(--text-muted);">
                 <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry-python" target="_blank" rel="noopener" style="color:var(--text-secondary);">Python SDK</a>
+                &middot;
+                <a href="https://github.com/AgentIdentityRegistry/agent-identity-registry-typescript" target="_blank" rel="noopener" style="color:var(--text-secondary);">TypeScript SDK</a>
                 &middot;
                 <a href="https://github.com/AgentIdentityRegistry/air-mcp-server" target="_blank" rel="noopener" style="color:var(--text-secondary);">MCP Server</a>
                 &middot;
