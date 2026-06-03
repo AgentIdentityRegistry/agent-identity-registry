@@ -1,9 +1,15 @@
 # AIR Identity Specification v0.1 (Draft)
 
-**Version**: 0.1 Draft  
-**Status**: Proposed for Foundation Review  
-**Last Updated**: 2026-03-18  
+**Version**: 0.1 Draft
+**Status**: Tracks the deployed production registry (worker `a2d46ed5`)
+**Last Updated**: 2026-06-03
 **Authors**: Agent Identity Registry Foundation, Technical Steering Committee
+
+> **Source of truth.** This document describes the **deployed** behaviour of the
+> registry at `https://agentidentityregistry.org/api/v1/`. The machine-readable
+> contract is [`api/openapi.yaml`](../api/openapi.yaml) (OpenAPI 3.1, served at
+> `/api/v1/openapi.yaml`). Where this prose and the OpenAPI document disagree,
+> the OpenAPI document wins — please file an issue.
 
 ---
 
@@ -13,9 +19,9 @@
 2. [Motivation](#motivation)
 3. [AIR ID Format](#air-id-format)
 4. [Agent Identity Document](#agent-identity-document)
-5. [Trust Score Methodology](#trust-score-methodology)
-6. [Verification Protocols](#verification-protocols)
-7. [Verifiable Credentials](#verifiable-credentials)
+5. [Identity & DID Model](#identity--did-model)
+6. [Trust Score Methodology](#trust-score-methodology)
+7. [Attestations & AIR Verified](#attestations--air-verified)
 8. [API Overview](#api-overview)
 9. [Security Considerations](#security-considerations)
 10. [Governance Model](#governance-model)
@@ -25,27 +31,25 @@
 
 ## Introduction
 
-The Agent Identity Specification (AIR-SPEC) defines the standard format, protocols, and procedures for creating, verifying, and maintaining cryptographic identities for AI agents. This specification enables interoperable identity infrastructure across different platforms, organizations, and jurisdictions.
+The Agent Identity Specification (AIR-SPEC) defines the format, protocols, and procedures for creating, verifying, and maintaining cryptographic identities for AI agents. It enables interoperable identity infrastructure across different platforms, organizations, and jurisdictions.
 
 ### Scope
 
 This specification covers:
-- Format for unique agent identifiers
-- Structure of agent identity documents
-- Trust scoring methodology
-- Verification protocols
-- Credential format for identity attestations
+- The format for unique agent identifiers (`AIR-XXXX-XXXX-XXXX`)
+- The structure of agent identity documents and their W3C DID documents
+- The trust scoring methodology actually computed by the registry
+- The attestation protocol and the AIR Verified badge
 - API contracts for registry operations
-- Security and privacy requirements
 
 ### Design Principles
 
-- **Openness**: Built on W3C standards; implementations are openly reviewed
+- **Openness**: Built on W3C standards (DID Core, Ed25519); implementations are openly reviewed
 - **Neutrality**: No organization has privileged access or decision-making power
-- **Transparency**: All algorithms and criteria are publicly documented
-- **Interoperability**: Works across platforms, chains, and systems
-- **Privacy**: Minimal collection of personal data; support for privacy-preserving verification
-- **Decentralization**: Multiple independent verifiers; no single point of failure
+- **Transparency**: All scoring components and the full attestation trail are publicly documented and queryable
+- **Interoperability**: Works across platforms via standard DIDs and a public REST API
+- **Privacy**: Minimal collection of personal data; no private keys are ever transmitted or stored
+- **Decentralization**: Trust is earned from independent attesters anchored to distinct DNS/WHOIS roots; no single party can manufacture it
 
 ---
 
@@ -58,13 +62,13 @@ As AI systems become increasingly autonomous, the ability to verify agent identi
 - No standardized way to compare agents across platforms
 - Malicious actors can impersonate legitimate agents
 
-AIR solves these problems through:
+AIR addresses these problems through:
 
-1. **Cryptographic Proof**: Each agent has a unique, verifiable identity backed by cryptographic keys
-2. **Standardized Trust Assessment**: Objective trust scores based on measurable criteria
-3. **Interoperability**: Works with any platform that adopts the standard
-4. **Transparency**: All scoring components are auditable and public
-5. **Neutral Governance**: Operated by nonprofit foundation, not commercial interests
+1. **Cryptographic proof**: each agent has a content-addressed identifier backed by an Ed25519 key and a W3C DID document
+2. **Standardized trust assessment**: an objective, published trust score with auditable components
+3. **Interoperability**: works with any platform that resolves DIDs and speaks the public REST API
+4. **Earned, Sybil-resistant trust**: the AIR Verified badge requires endorsements from independent attesters on distinct WHOIS roots
+5. **Neutral governance**: operated by a nonprofit foundation, not commercial interests
 
 ---
 
@@ -76,59 +80,45 @@ AIR solves these problems through:
 AIR-XXXX-XXXX-XXXX
 ```
 
-Where each `X` is a base32 character (excluding I, L, O, U to avoid confusion with similar-looking letters).
-
-**Valid characters**: `A-H`, `J-N`, `P-Z`, `2-7` (26 letters + 10 digits - 4 ambiguous = 32 characters)
+Each `X` is a **Crockford Base32** character: the alphabet `0123456789ABCDEFGHJKMNPQRSTVWXYZ` — the digits `0-9` plus `A-Z` with the four look-alike letters **I, L, O, U excluded**. IDs are uppercase. (The registry's validation pattern is `^AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$`.)
 
 ### Structure
 
 ```
-┌─────────────────────────────────────────┐
-│  AIR-7F3K-M9JQ-X2PL                     │
-│  └──┬──┘ └──┬──┘ └──┬──┘                │
-│     │      │       │                     │
-│     │      │       └── Checksum (4 chars)│
-│     │      └─────────── Hash tail (4 chars)
-│     └───────────────── Hash head (4 chars)
-│                                          │
-│  Total: 19 characters (AIR + 3x4 + 2x1) │
-└─────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│  AIR-7F3K-M9JQ-X2PL                            │
+│  └──┬──┘ └──┬──┘ └──┬──┘                       │
+│     │       │       └── Checksum (4 chars)     │
+│     │       └────────── Hash tail  (4 chars)   │
+│     └────────────────── Hash head  (4 chars)   │
+│                                                │
+│  Total: 18 chars (AIR + 3 dashes + 3×4 base32) │
+└──────────────────────────────────────────────┘
 ```
 
 ### Generation Algorithm
 
-1. Create agent identity document (JSON)
-2. Serialize with canonical JSON encoding (RFC 8785)
-3. Compute SHA-256 hash of document
-4. Extract first 8 bytes → base32 encode → XXXX-XXXX (head-tail)
-5. Compute CRC32 checksum on full hash → base32 encode → XXXX (checksum)
-6. Format: `AIR-HEAD-TAIL-CHECKSUM`
+The AIR ID is **content-addressed** — derived deterministically from the agent's identity document:
+
+1. Serialize the identity document as canonical JSON (object keys sorted).
+2. Compute the **SHA-256** hash of the canonical bytes.
+3. Take the first 8 hash bytes → Crockford-Base32 → `HEAD` (first 4 bytes) and `TAIL` (next 4 bytes), 4 chars each.
+4. Compute **CRC-32** over the full 32-byte hash → Base32 → `CHECKSUM` (4 chars).
+5. Format as `AIR-HEAD-TAIL-CHECKSUM`.
+
+Because the ID is a hash of the document, the same content always yields the same ID, and any tampering changes the ID.
 
 ### Verification
 
-Recipients can verify AIR ID integrity:
-```python
-def verify_air_id(air_id, identity_doc):
-    # Extract components
-    head, tail, checksum = parse_air_id(air_id)
-    
-    # Recompute hash
-    hash_obj = compute_hash(identity_doc)
-    computed_head = base32_encode(hash_obj[:8])
-    computed_tail = base32_encode(hash_obj[8:16])
-    computed_checksum = base32_encode(crc32(hash_obj))
-    
-    # Verify
-    return (head == computed_head and 
-            tail == computed_tail and 
-            checksum == computed_checksum)
-```
+A recipient can verify integrity by recomputing the hash of the canonical document and confirming the HEAD/TAIL/CHECKSUM segments match. The CHECKSUM additionally catches transcription errors before any network lookup.
 
 ---
 
 ## Agent Identity Document
 
-### JSON Structure
+The canonical agent record returned by `GET /agents/{air_id}`. Fields marked *(at registration)* are supplied by the creator; the rest are computed by the registry.
+
+### Structure
 
 ```json
 {
@@ -136,341 +126,343 @@ def verify_air_id(air_id, identity_doc):
   "type": "AgentIdentity",
   "air_id": "AIR-7F3K-M9JQ-X2PL",
   "name": "DataProcessor-v3",
-  "description": "Processes and analyzes financial data with high security standards",
-  "created": "2025-11-15T08:23:42Z",
-  "updated": "2026-03-15T14:22:01Z",
+  "description": "Processes and analyzes financial data.",
   "creator": {
-    "did": "did:key:z6MkhaXgBZDvotDkL5257faWxcqV7aGHRH94JWr93gXgvjpq",
+    "did": "did:wba:agentidentityregistry.org:agents:AIR-7F3K-M9JQ-X2PL",
     "name": "DataTech Inc.",
-    "type": "organization"
+    "type": "organization",
+    "public_key": "QmFzZTY0dXJsLWVuY29kZWQtZWQyNTUxOS1rZXk"
   },
-  "capabilities": [
-    {
-      "name": "data_processing",
-      "description": "Processes structured and semi-structured data",
-      "verified": true
-    },
-    {
-      "name": "financial_analysis",
-      "description": "Performs financial ratio analysis and forecasting",
-      "verified": true
-    },
-    {
-      "name": "report_generation",
-      "description": "Generates formatted reports in PDF, HTML formats",
-      "verified": true
-    }
-  ],
+  "capabilities": ["data_processing", "financial_analysis"],
   "security": {
-    "certifications": ["SOC2-Type2", "ISO27001"],
-    "frameworks": ["NIST-CSF", "CIS-Controls"],
-    "last_audit": "2026-01-15",
-    "vulnerability_disclosure_program": "https://security.datatech.io/disclosure"
+    "certifications": ["SOC2-Type2", "ISO27001"]
   },
   "transparency": {
     "open_source": true,
     "code_repository": "https://github.com/datatech/processor",
-    "documentation_url": "https://docs.datatech.io/processor",
-    "limitations": "Designed for financial data; not suitable for medical/legal analysis"
+    "documentation_url": "https://docs.datatech.io/processor"
   },
-  "deployment": {
-    "platforms": ["AWS", "GCP", "Azure", "on-premises"],
-    "api_endpoint": "https://api.datatech.io/agent/v1",
-    "uptime_sla": 0.999
+  "verified": false,
+  "verification_level": "self-verified",
+  "is_demo": false,
+  "status": "active",
+  "created": "2026-05-15T08:23:42Z",
+  "updated": "2026-05-20T14:22:01Z",
+  "trust_score": 375,
+  "trust_grade": "C",
+  "components": {
+    "provenance": 400,
+    "behavioral": 500,
+    "transparency": 300,
+    "security": 300,
+    "peer_attestations": 300
   },
-  "attestations": [
-    {
-      "issuer": "did:key:z6Mkj5VAgoR9mAFvDtGTVdVrwbJkfvAf6HnNbqBJSZGi5",
-      "type": "capability_verification",
-      "subject": "data_processing",
-      "date": "2026-02-01"
-    }
-  ]
+  "verification_status": { "verified": false, "verification_score": 0, "distinct_whois_roots": 0, "attestation_count": 0 }
 }
 ```
 
-### Required Fields
+### Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `@context` | String | JSON-LD context URL |
-| `type` | String | Always "AgentIdentity" |
-| `air_id` | String | Unique AIR identifier |
-| `name` | String | Human-readable agent name |
-| `creator` | Object | Identity and details of agent creator |
-| `created` | ISO 8601 | Original creation timestamp |
-
-### Optional but Recommended
-
-- `capabilities`: List of verified capabilities
-- `security`: Certifications, frameworks, audit info
-- `transparency`: Open source status, documentation links
-- `deployment`: Platforms, API endpoints, SLA info
-- `attestations`: Verifiable credentials from third parties
+| Field | Type | Notes |
+|-------|------|-------|
+| `@context` | string | JSON-LD context, currently `https://agentidentityregistry.org/v1` |
+| `type` | string | Always `AgentIdentity` |
+| `air_id` | string | Content-addressed identifier (see above) |
+| `name` | string | ≤ 200 chars *(at registration)* |
+| `description` | string | ≤ 2000 chars *(at registration)* |
+| `creator.did` | string \| null | The agent's DID. If none is brought, the registry mints `did:wba:agentidentityregistry.org:agents:{air_id}` |
+| `creator.name` / `creator.type` | string \| null | `type` ∈ `individual`, `organization` |
+| `creator.public_key` | string \| null | Ed25519 public key, base64url (43–44 chars) |
+| `capabilities` | string[] | ≤ 20 freeform capability tags |
+| `security.certifications` | string[] | Self-declared certifications |
+| `transparency` | object | `open_source` (bool), `code_repository`, `documentation_url` |
+| `verified` | bool | The AIR Verified badge (see [Attestations](#attestations--air-verified)) |
+| `verification_level` | string | Label: `self-verified`, `enhanced`, or `kyc-verified` |
+| `is_demo` | bool | Seed/demo records are flagged, not hidden |
+| `status` | string | `active` or `deleted` (soft-delete) |
+| `created` / `updated` | date-time | ISO 8601 |
+| `trust_score` / `trust_grade` | int \| null / string \| null | See [Trust Score](#trust-score-methodology) |
+| `components` | object \| null | The five trust sub-scores |
+| `verification_status` | object | Live attestation aggregate (score, distinct roots, count) |
 
 ### Versioning
 
-Documents are versioned via their hash (which generates the AIR ID). Updates create new documents:
-- Old documents remain discoverable
-- New document created with new AIR ID
-- Metadata can indicate version relationships
+The AIR ID is a hash of the document, so a material change yields a *new* document with a *new* AIR ID. Earlier documents remain discoverable; `alsoKnownAs` / metadata can express version relationships.
+
+---
+
+## Identity & DID Model
+
+Every agent has a **W3C DID document**, served at `GET /agents/{air_id}/did-document`.
+
+### AIR-minted DIDs (`did:wba`)
+
+Agents that do not bring their own DID receive an AIR-minted one in the **canonical** form:
+
+```
+did:wba:agentidentityregistry.org:agents:{air_id}
+```
+
+`did:wba` (Web-Based Authentication) is a DNS-anchored DID method requiring no blockchain or central ledger. The DID document is W3C DID Core JSON-LD (camelCase wire format):
+
+```json
+{
+  "@context": [
+    "https://www.w3.org/ns/did/v1",
+    "https://w3id.org/security/suites/ed25519-2020/v1"
+  ],
+  "id": "did:wba:agentidentityregistry.org:agents:AIR-WBA1-DEMO-AGT0",
+  "verificationMethod": [{
+    "id": "did:wba:agentidentityregistry.org:agents:AIR-WBA1-DEMO-AGT0#key-1",
+    "type": "Ed25519VerificationKey2020",
+    "controller": "did:wba:agentidentityregistry.org:agents:AIR-WBA1-DEMO-AGT0",
+    "publicKeyMultibase": "z6Mk..."
+  }],
+  "authentication": ["...#key-1"],
+  "assertionMethod": ["...#key-1"],
+  "service": [{
+    "id": "...#trust-score",
+    "type": "AIRTrustScore",
+    "serviceEndpoint": "https://agentidentityregistry.org/api/v1/agents/AIR-WBA1-DEMO-AGT0/trust-score"
+  }]
+}
+```
+
+- **`publicKeyMultibase`** uses the same encoding as `did:key`: multibase prefix `z` (base58btc) + multicodec `0xed01` (Ed25519) + the 32 raw key bytes.
+- The first `service` entry (`AIRTrustScore`) is always registry-issued and not user-controlled. Agents may add further entries (e.g. an `A2AInbox`) via `PUT`.
+- `alsoKnownAs` lists any other DIDs the agent claims (e.g. its own `did:key` or `did:web`).
+
+### Resolution rules
+
+| DID | How it resolves |
+|-----|-----------------|
+| **AIR-minted** (`agentidentityregistry.org`) | **Self-hosted via direct DB lookup**, never an HTTP self-fetch (a Worker cannot reliably fetch its own route). The agent existing, being `active`, and having a `public_key` is the proof its DID document resolves. |
+| **Non-canonical** on `agentidentityregistry.org` | **Hard-rejected at the source** (only `agents:{air_id}` is accepted) so no future catch-all/SPA route can become a key-substitution vector. |
+| **External** `did:wba:DOMAIN[:path]` | Fetched over HTTPS from `https://DOMAIN/.well-known/agent.json` (bare domain) or `https://DOMAIN/path/segments/did.json` (path form). Resolution **must not redirect**, must be `application/json` / `application/did+json`, and is read up to a fixed byte cap. |
+
+### Key binding (Lock 1)
+
+When an **external** `did:wba` attester vouches for an agent, the registry re-resolves the attester's live DID document and confirms it **advertises the exact public key AIR has on file** (a byte-equal `Ed25519VerificationKey2020` in `verificationMethod[]`). The check is **fail-closed**: if the document is missing, malformed, redirected, non-JSON, or the key is absent, the vouch does not count. AIR-minted DIDs skip this binding because they are self-consistent by construction. A weekly cron re-resolves external DIDs and flags drift (`did_wba_resolved = 0` with a distinct "key drift" reason).
 
 ---
 
 ## Trust Score Methodology
 
-### Overview
+> This section documents the **deployed** scoring. The companion
+> [`TRUST-SCORE.md`](TRUST-SCORE.md) contains a fuller, target-state rubric that
+> still reflects the original 2026-03 design and is **pending the same
+> reconciliation** — where the two differ, the numbers below are what the
+> registry actually computes today.
 
-Trust scores range from **0 to 1000**, with five equally-weighted components:
+### Formula
+
+The trust score (0–1000) is a **weighted sum** of five components, each on a 0–1000 scale:
 
 ```
-Trust Score = 200 × (P + B + T + S + A) / 5
-
-where:
-  P = Provenance score (0-1000)
-  B = Behavioral score (0-1000)
-  T = Transparency score (0-1000)
-  S = Security score (0-1000)
-  A = Peer Attestation score (0-1000)
+total = round( 0.25·Provenance
+             + 0.25·Behavioral
+             + 0.20·Transparency
+             + 0.15·Security
+             + 0.15·PeerAttestations )
 ```
 
-### Component Definitions
+### Component scoring (as implemented)
 
-#### 1. Provenance (25%)
+| Component | Weight | How it is computed today | Effective range |
+|-----------|--------|--------------------------|-----------------|
+| **Provenance** | 25% | base 300; +100 each for creator DID, creator name, and `type = organization` | 300–600 |
+| **Behavioral** | 25% | flat **500** placeholder — signed action history is a future release | 500 |
+| **Transparency** | 20% | base 300; +150 open-source, +100 code repo, +100 docs URL | 300–650 |
+| **Security** | 15% | base 300; +100 per declared certification (max +300) | 300–600 |
+| **Peer Attestations** | 15% | `min(300 + round(18·√W), 1000)`, where `W` is the frozen-weight sum of active attestations (baseline **300** with none) | 300–1000 |
 
-**What it measures**: Where did this agent come from? Who created it? How was it built?
+The peer-attestation curve uses **frozen weights** (`attester_trust_at_issue × tenure_multiplier_at_issue` captured at attestation time). Freezing breaks the recursive "trust pump" loop — raising one agent's score later cannot retroactively inflate the agents it has vouched for.
 
-**Scoring criteria**:
-- Creator identity verified: +200
-- Creator has history of trustworthy agents: +150
-- Published source code available: +150
-- Code reviewed by third parties: +200
-- Training data provenance documented: +100
-- **Maximum**: 1000
+### Current ceiling
 
-#### 2. Behavioral (25%)
+Because `Behavioral` is a flat 500 and the other input components are capped well below 1000, a maximally-favourable agent today reaches a total of **645 (grade BBB)**. Grades **A / AA / AAA are reserved** for when behavioral telemetry and higher-confidence inputs ship. (Worked example: P=600, B=500, T=650, S=600, A=1000 → `0.25·600 + 0.25·500 + 0.20·650 + 0.15·600 + 0.15·1000 = 645`.)
 
-**What it measures**: How has this agent actually behaved in practice?
+### Trust grades
 
-**Scoring criteria**:
-- Successful interactions reported: +150
-- Mean request completion time meets SLA: +150
-- Error/failure rate < 1%: +200
-- No reported security incidents: +200
-- Behavioral consistency over time: +150
-- No detected drift from original specs: +150
-- **Maximum**: 1000
+| Score | Grade |
+|-------|-------|
+| ≥ 950 | AAA |
+| ≥ 850 | AA |
+| ≥ 700 | A |
+| ≥ 600 | BBB |
+| ≥ 500 | BB |
+| ≥ 400 | B |
+| < 400 | C |
 
-#### 3. Transparency (20%)
+### Recalculation
 
-**What it measures**: How openly does the creator explain the agent?
-
-**Scoring criteria**:
-- Public documentation available: +150
-- Known limitations documented: +150
-- Algorithm/model details disclosed: +200
-- Usage examples provided: +150
-- Open issue tracking: +100
-- Regular updates to documentation: +100
-- **Maximum**: 1000
-
-#### 4. Security (15%)
-
-**What it measures**: How secure is the agent and its infrastructure?
-
-**Scoring criteria**:
-- No known vulnerabilities: +200
-- Security certifications (SOC2, ISO27001): +200
-- Regular security audits: +150
-- Vulnerability disclosure program: +150
-- Encryption in transit and at rest: +150
-- Access controls and rate limiting: +150
-- **Maximum**: 1000
-
-#### 5. Peer Attestations (15%)
-
-**What it measures**: What do other verified parties say about this agent?
-
-**Scoring criteria**:
-- Each verified attestation: +50 (max 1000)
-- Attestations from different organizations: +bonus 50 per unique org
-- Attestations from trusted verifiers: +100 each (limited)
-- Negative attestations: -200 each
-
-**Example**: 10 attestations from 5 different organizations = 500 + 250 = 750
-
-### Trust Grades
-
-Scores map to letter grades:
-
-| Score | Grade | Interpretation |
-|-------|-------|-----------------|
-| 950-1000 | AAA | Exceptional trust; suitable for critical operations |
-| 900-949 | AA | High trust; suitable for production |
-| 850-899 | A | Good trust; suitable for most uses |
-| 800-849 | BBB | Moderate trust; monitor performance |
-| 700-799 | BB | Lower trust; use with caution |
-| 600-699 | B | Low trust; limited production use |
-| < 600 | C | Minimal trust; testing/research only |
-
-### Calculation Details
-
-See [docs/TRUST-SCORE.md](TRUST-SCORE.md) for detailed methodology including:
-- Exact scoring rubrics
-- Evidence requirements for each criterion
-- Dispute resolution process
-- Score recalculation frequency (quarterly)
+Scores are recomputed **on the events that can change them** — attestation create/revoke, an agent edit, or an attester's deletion (which rescores every agent that attester vouched for). A **weekly cron** (`0 3 * * SUN`) additionally re-resolves external `did:wba` documents and flags key drift. There is no fixed "quarterly" cadence.
 
 ---
 
-## Verification Protocols
+## Attestations & AIR Verified
 
-### Self-Verification
+Attestations are how one registered agent **vouches** for another. They are the input to the **AIR Verified** badge and to the Peer-Attestation trust component.
 
-Agents can prove their own identity:
+### Creating an attestation
+
+Attestations are **signed client-side** — the registry never sees a private key. The attester:
+
+1. Builds the payload `{ attester_air_id, attestation_type, signed_at, statement, subject_air_id }`.
+2. Canonicalizes it (JCS / RFC 8785) and signs the canonical bytes with its **Ed25519** key.
+3. Multibase-encodes the signature (`z` + base58btc) as `signature_multibase`.
+4. `POST /agents/{subject_air_id}/attestations` with that payload, authenticated by the **attester's** `X-Agent-Secret`.
+
+### The six Locks
+
+Whether an attestation counts toward **AIR Verified** is gated by six checks:
+
+1. **Live key binding** — attester's `did:wba` resolves and advertises the on-file key; the Ed25519 signature verifies (fail-closed).
+2. **Distinct WHOIS root** — duplicate vouches from the same DNS/WHOIS root are rejected (`409`).
+3. **Attester eligibility** — attester tenure ≥ 30 days and trust ≥ 50.
+4. **Weighting** — the vouch's contribution is the frozen `attester_trust_at_issue × tenure_multiplier_at_issue`.
+5. **Rate limit** — at most 10 attestations per attester per 7 days.
+6. **Audit** — every attestation (active and revoked) is part of a public trail.
+
+### AIR Verified
+
+An agent is **Verified** when its live attestation aggregate satisfies **both**:
 
 ```
-Agent → Registry: Prove identity for AIR-7F3K-M9JQ-X2PL
-Registry: Computes SHA-256 of stored identity document
-Agent: Provides private key signature of challenge nonce
-Registry: Verifies signature against public key
-Registry → Agent: Identity verified
+verification_score ≥ 300   AND   distinct_whois_roots ≥ 3
 ```
 
-### Third-Party Verification
+where `verification_score = Σ (attester_trust_at_issue × tenure_multiplier_at_issue)` over **active attestations from active attesters**.
 
-Independent verifiers audit and attest to agent properties:
+- **Dead-vouch filter**: a vouch from a deleted/deactivated attester stops counting toward both the score and Verified; deleting an attester rescores its dependents.
+- **The ≥ 3 distinct WHOIS roots requirement is the Sybil moat** — AIR-minted agents all share the `agentidentityregistry.org` root and therefore count as only **one** root among the three required.
 
-1. **Scope Definition**: Verifier and creator agree on what to verify
-2. **Examination**: Verifier examines code, documentation, behavior
-3. **Attestation**: Verifier issues W3C Verifiable Credential
-4. **Registration**: Credential registered in AIR registry
-5. **Scoring**: Credential contributions counted in trust score
+### Revoking
 
-### Verification Levels
-
-**Level 1 - Self-Attested**: Agent claims capabilities
-**Level 2 - Organization Verified**: Creator's organization verifies
-**Level 3 - Third-Party Verified**: Independent auditor verifies
-**Level 4 - Foundation Verified**: AIR Foundation conducts formal audit
-
----
-
-## Verifiable Credentials
-
-### Credential Format
-
-Credentials use W3C Verifiable Credentials Data Model 1.0:
-
-```json
-{
-  "@context": [
-    "https://www.w3.org/2018/credentials/v1",
-    "https://agentidentityregistry.org/api/v1/credentials"
-  ],
-  "type": ["VerifiableCredential", "AgentCapabilityCredential"],
-  "issuer": "did:key:z6Mkj5VAgoR9mAFvDtGTVdVrwbJkfvAf6HnNbqBJSZGi5",
-  "issued": "2026-02-01T10:15:33Z",
-  "valid_until": "2027-02-01T10:15:33Z",
-  "credentialSubject": {
-    "id": "AIR-7F3K-M9JQ-X2PL",
-    "property": "data_processing_capability",
-    "claim": "Agent can process structured data with 99.5% accuracy",
-    "evidence": {
-      "test_results": "https://audit-server.org/reports/12345",
-      "data_points": 10000,
-      "methodology": "Held-out test set validation"
-    }
-  },
-  "proof": {
-    "type": "Ed25519Signature2020",
-    "created": "2026-02-01T10:15:33Z",
-    "verificationMethod": "did:key:z6Mkj5VAgoR9mAFvDtGTVdVrwbJkfvAf6HnNbqBJSZGi5#z6MksVxXTnvwL7a3p6U",
-    "signatureValue": "..."
-  }
-}
-```
-
-### Credential Types
-
-- **Capability Credential**: Attests agent can perform specific task
-- **Security Credential**: Auditor attests security properties
-- **Behavior Credential**: Platform attests behavioral metrics
-- **Lineage Credential**: Attests training data or code provenance
+`DELETE /agents/{air_id}/attestations/{attestation_id}` soft-deletes an attestation (original attester's `X-Agent-Secret` required) and returns the subject's recomputed verified status.
 
 ---
 
 ## API Overview
 
-### Core Endpoints
+Base URL: `https://agentidentityregistry.org/api/v1`. The full machine-readable contract is at [`/api/v1/openapi.yaml`](../api/openapi.yaml).
+
+### Endpoints
+
+**Public (no auth):**
 
 ```
-GET    /v1/agents/:air_id              Get agent identity
-POST   /v1/agents/register             Register new agent
-PUT    /v1/agents/:air_id              Update agent identity
-GET    /v1/agents/:air_id/credentials  Get all credentials
-GET    /v1/agents/:air_id/trust-score  Get trust score
-POST   /v1/credentials/verify          Verify a credential
-GET    /v1/verifiers                   List approved verifiers
+GET  /health                              Service health
+GET  /agents                              List/search agents (limit, offset)
+GET  /agents/check-name                   Check name availability
+GET  /agents/{air_id}                     Full agent record
+GET  /agents/{air_id}/trust-score         Trust score + components
+GET  /agents/{air_id}/did-document        W3C DID document
+GET  /agents/{air_id}/attestations        Attestation trail + verified status
+GET  /attestations/recent                 Recent-attestations firehose
+GET  /agents/{air_id}/badge.svg           Embeddable trust badge (SVG)
+GET  /agents/{air_id}/graph               Trust ego-graph
+GET  /agents/{air_id}/dependents          Agents this one vouches for
+GET  /graph/stats                         Registry-wide graph stats
+GET  /openapi.yaml                         This API contract
 ```
 
-Full API documentation at https://agentidentityregistry.org/api/v1/openapi.yaml
+**Agent management:**
+
+```
+POST   /agents/register                   Register a new agent (rate-limited)
+PUT    /agents/{air_id}                    Update agent (X-Agent-Secret)
+POST   /agents/{air_id}/attestations       Create an attestation (attester's X-Agent-Secret)
+DELETE /agents/{air_id}/attestations/{id}  Revoke an attestation (original attester)
+```
+
+**Admin (operator-only, `X-Admin-Key`):**
+
+```
+DELETE /agents/{air_id}                    Soft-delete an agent
+GET    /admin/stats                        Registry statistics
+GET    /admin/recent                       Recent registrations
+```
+
+### Authentication
+
+- **Default: none.** Most endpoints are public and cacheable.
+- **`X-Agent-Secret`** — the 32-character hex secret returned at registration. Required for `PUT` and for creating/revoking attestations. Compared in constant time against a stored SHA-256 hash; the plaintext is never persisted.
+- **`X-Admin-Key`** — AIR operator-only; required for agent deletion and the `/admin/*` endpoints. Not user-distributable.
+
+### Rate limiting
+
+Only `POST /agents/register` is rate-limited: **5 registrations per hour per source IP**. All other endpoints are unrated as of v0.1.0.
 
 ---
 
 ## Security Considerations
 
 ### Key Management
-- Private keys must be kept secure (hardware wallet recommended)
-- Key rotation protocols defined in [SECURITY.md](SECURITY.md)
-- No private keys transmitted or stored on registry
+- Agents hold their own Ed25519 private keys; **no private key is ever transmitted to or stored by the registry**.
+- Per-agent secrets are stored only as constant-time-compared SHA-256 hashes.
+- Hardware-backed key storage is recommended for high-value agents.
 
 ### Cryptography
-- EdDSA (Ed25519) for signatures
-- BLAKE2b for hashing (for future-proofing)
-- SHA-256 for AIR ID generation (FIPS compliance)
+- **Ed25519 (EdDSA)** for agent signatures and attestations.
+- **SHA-256** for content-addressed AIR ID generation and secret hashing.
+- **CRC-32** as the AIR ID checksum (transcription-error detection only — not a security primitive).
+
+### DID resolution hardening
+- External `did:wba` resolution **rejects redirects**, requires a JSON content type (guarding against HTML/SPA fallbacks), and reads only up to a fixed byte cap.
+- An external attester's key is **bound** to its freshly-resolved DID document on every vouch (Lock 1, fail-closed).
+- Non-canonical DIDs on the AIR domain are hard-rejected before any lookup.
+
+### Abuse resistance
+- Registration rate limiting (5/hr/IP).
+- Attestation rate limiting (10 per attester / 7 days) and WHOIS-root distinctness.
+- The ≥ 3 distinct WHOIS roots requirement for Verified resists Sybil attacks.
 
 ### Privacy
-- Minimal PII collection
-- No personal data linked to agents without explicit consent
-- Privacy-preserving verification methods preferred
+- Minimal PII collection; no personal data is linked to agents without consent.
 
 ---
 
 ## Governance Model
 
-See [GOVERNANCE.md](GOVERNANCE.md) for complete governance structure.
+See [GOVERNANCE.md](GOVERNANCE.md) for the complete governance structure.
 
-**Key points**:
-- Foundation board oversees spec evolution
-- Quarterly reviews with stakeholder feedback
-- Major changes require 2/3 board approval + community comment period
+**Key points:**
+- The Foundation board oversees specification evolution.
+- Material changes require board approval plus a community comment period.
+- Methodology concerns may be filed as GitHub issues labelled `spec-feedback`.
 
 ---
 
 ## Glossary
 
-**Agent**: An autonomous software system capable of independent action and decision-making
+**Agent** — An autonomous software system capable of independent action and decision-making.
 
-**Verifier**: Organization or individual authorized to audit and attest to agent properties
+**AIR ID** — A content-addressed, Crockford-Base32 identifier (`AIR-XXXX-XXXX-XXXX`) derived from the SHA-256 of an agent's identity document.
 
-**Credential**: W3C Verifiable Credential attesting to a property or capability
+**Attestation** — A cryptographically signed vouch by one registered agent for another, signed Ed25519 over the JCS-canonical payload and submitted to the registry.
 
-**Trust Score**: Composite score (0-1000) indicating overall agent trustworthiness
+**AIR Verified** — A badge granted when an agent's active attestation aggregate reaches `verification_score ≥ 300` from attesters on **≥ 3 distinct WHOIS roots**.
 
-**DID**: Decentralized Identifier (W3C standard) for self-sovereign identity
+**WHOIS root** — The registrable-domain owner behind an attester's identity; the unit of distinctness used to resist Sybil attacks.
 
-**Attestation**: A verified claim about an agent's properties or capabilities
+**Trust Score** — A weighted composite (0–1000) of five components: provenance, behavioral, transparency, security, peer attestations.
+
+**did:wba** — A DNS-anchored DID method (Web-Based Authentication) used for AIR-minted and external agent DIDs.
+
+**DID** — Decentralized Identifier (W3C standard) for self-sovereign identity.
+
+**publicKeyMultibase** — Multibase (`z` + base58btc) encoding of an Ed25519 public key with multicodec prefix `0xed01`.
 
 ---
 
 ## Document Status
 
-This specification is a **DRAFT** submitted for Foundation Technical Steering Committee review. Community feedback is welcomed. Please submit comments as GitHub issues with label `spec-feedback`.
+This specification is a **DRAFT** that tracks the deployed registry. It reflects production worker `a2d46ed5` as of 2026-06-03. Community feedback is welcome — please file GitHub issues labelled `spec-feedback`.
 
-**Next review date**: 2026-06-18
+**Companion documents:** [`TRUST-SCORE.md`](TRUST-SCORE.md) (detailed scoring rubric — pending reconciliation), [`GOVERNANCE.md`](GOVERNANCE.md), and the canonical [`api/openapi.yaml`](../api/openapi.yaml).
 
 ---
 
-**Agent Identity Registry Foundation**  
+**Agent Identity Registry Foundation**
 *Building neutral infrastructure for AI agent trust*
