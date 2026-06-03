@@ -168,7 +168,7 @@
         <!-- ─── PYTHON SDK ────────────────────────────────────────── -->
         <div class="content-section" id="python-sdk">
             <h2>Python SDK</h2>
-            <p>Async client covering all 11 endpoints. Pydantic v2 models, typed exception hierarchy, full test coverage.</p>
+            <p>Async client covering all 17 endpoints. Pydantic v2 models, typed exception hierarchy, full test coverage.</p>
 
             <h3>Install</h3>
 <pre class="code"><span class="kw">$</span> pip install agent-identity-registry</pre>
@@ -181,7 +181,7 @@
     <span class="kw">async with</span> AIRClient() <span class="kw">as</span> client:
         agent = <span class="kw">await</span> client.get_agent(<span class="str">"AIR-7F3K-M9JQ-X2PL"</span>)
         <span class="kw">print</span>(agent.name, agent.trust_score, agent.trust_grade)
-        <span class="cm"># → DataProcessor-v3 942 AAA</span>
+        <span class="cm"># → DataProcessor-v3 645 BBB</span>
 
 asyncio.run(main())</pre>
 
@@ -230,13 +230,13 @@ asyncio.run(main())</pre>
 
             <h3>Example output</h3>
 <pre class="code"><span class="kw">$</span> air score AIR-7F3K-M9JQ-X2PL
-  AIR-7F3K-M9JQ-X2PL  Trust Score: 942 (AAA)
+  AIR-7F3K-M9JQ-X2PL  Trust Score: 645 (BBB)
 
-  provenance          960  ███████████████████░  weight 0.25
-  behavioral          935  ██████████████████░░  weight 0.25
-  transparency        950  ███████████████████░  weight 0.20
-  security            920  ██████████████████░░  weight 0.15
-  peer_attestations   940  ██████████████████░░  weight 0.15</pre>
+  provenance          600  ████████████░░░░░░░░  weight 0.25
+  behavioral          500  ██████████░░░░░░░░░░  weight 0.25
+  transparency        650  █████████████░░░░░░░  weight 0.20
+  security            600  ████████████░░░░░░░░  weight 0.15
+  peer_attestations  1000  ████████████████████  weight 0.15</pre>
         </div>
 
         <!-- ─── MCP ──────────────────────────────────────────────── -->
@@ -326,7 +326,7 @@ asyncio.run(main())</pre>
         <!-- ─── REST API REFERENCE ──────────────────────────────── -->
         <div class="content-section" id="rest-api">
             <h2>REST API reference</h2>
-            <p>The OpenAPI spec is the definitive reference, but here are the 11 endpoints at a glance:</p>
+            <p>The OpenAPI spec is the definitive reference, but here are the core endpoints at a glance:</p>
 
             <h3>Public endpoints (no auth)</h3>
             <table class="cmd-table">

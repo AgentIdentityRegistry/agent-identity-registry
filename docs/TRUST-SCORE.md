@@ -1,7 +1,7 @@
 # AIR Trust Score Methodology
 
 **Version**: 1.0  
-**Last Updated**: 2026-03-18  
+**Last Updated**: 2026-06-03  
 **Effective Date**: 2026-04-01
 
 ---
@@ -10,32 +10,43 @@
 
 The AIR Trust Score provides a standardized, transparent assessment of AI agent trustworthiness on a scale of 0-1000. This document details the methodology, scoring rubrics, evidence requirements, and dispute resolution procedures.
 
+The methodology below has two layers, clearly separated throughout:
+
+- **Implemented today** — the exact scoring the deployed engine computes right now (`api/src/trust.mjs`). These are the numbers a real agent receives.
+- **Target rubric (not yet implemented)** — the richer aspirational criteria we are building toward. These describe future inputs (behavioral telemetry, third-party audits, etc.) and do **not** affect live scores.
+
 ## Trust Score Formula
 
+Each component is scored 0-1000, then combined as a **weighted sum** (not an equally-weighted average):
+
 ```
-Trust Score = 200 × (P + B + T + S + A) / 5
+Trust Score = round( 0.25·P + 0.25·B + 0.20·T + 0.15·S + 0.15·A )
 
 where components are each scored 0-1000:
-  P = Provenance Score (weight: 25%)
-  B = Behavioral Score (weight: 25%)  
-  T = Transparency Score (weight: 20%)
-  S = Security Score (weight: 15%)
-  A = Peer Attestation Score (weight: 15%)
+  P = Provenance Score        (weight: 25%)
+  B = Behavioral Score        (weight: 25%)
+  T = Transparency Score      (weight: 20%)
+  S = Security Score          (weight: 15%)
+  A = Peer Attestation Score  (weight: 15%)
 
-Result: 0-1000 points
+Result: 0-1000 points (rounded to the nearest integer)
 ```
+
+The five weights sum to 1.0, so the result stays on the 0-1000 scale.
 
 ## Trust Grades
 
-| Score Range | Grade | Description | Use Cases |
-|-----------|-------|-------------|-----------|
-| 950-1000 | AAA | Exceptional | Critical infrastructure, high-security operations |
-| 900-949 | AA | High trust | Production systems, regulated industries |
-| 850-899 | A | Good trust | General production use |
-| 800-849 | BBB | Moderate trust | Non-critical production, with monitoring |
-| 700-799 | BB | Lower trust | Secondary systems, controlled environments |
-| 600-699 | B | Low trust | Limited production, primarily testing |
-| 0-599 | C | Minimal | Research, testing, sandboxed only |
+| Score | Grade | Description | Use Cases |
+|-------|-------|-------------|-----------|
+| ≥ 950 | AAA | Exceptional | Critical infrastructure, high-security operations |
+| ≥ 850 | AA | High trust | Production systems, regulated industries |
+| ≥ 700 | A | Good trust | General production use |
+| ≥ 600 | BBB | Moderate trust | Non-critical production, with monitoring |
+| ≥ 500 | BB | Lower trust | Secondary systems, controlled environments |
+| ≥ 400 | B | Low trust | Limited production, primarily testing |
+| < 400 | C | Minimal | Research, testing, sandboxed only |
+
+> **Current ceiling**: With today's implemented scoring, a maximally-favourable agent (Provenance 600, Behavioral 500, Transparency 650, Security 600, Peer Attestations capped at 1000) reaches a total of **645 — grade BBB**. Grades A, AA, and AAA are therefore reserved until behavioral telemetry and higher-confidence inputs ship; no live agent can reach them yet.
 
 ## Component Rubrics
 
@@ -43,7 +54,19 @@ Result: 0-1000 points
 
 **Purpose**: Verify the agent's origins, creator credibility, and development practices.
 
-#### Scoring Breakdown
+#### Implemented today
+
+Base **300**, plus signals from the registration record, **capped at 600**:
+
+- Creator DID present: **+100**
+- Creator name present: **+100**
+- Creator type is `organization`: **+100**
+
+So an anonymous registration scores 300; a fully-identified organization caps at 600.
+
+#### Target rubric (not yet implemented)
+
+The detailed criteria below describe the richer provenance signals we are building toward (independent code review, training-data provenance, etc.). They are **not** part of the live score today.
 
 **Creator Identity & Verification** (Max 200 points)
 - Creator DID registered and verifiable: +50
@@ -98,7 +121,13 @@ Result: 0-1000 points
 
 **Purpose**: Assess actual agent behavior and performance in practice.
 
-#### Scoring Breakdown
+#### Implemented today
+
+Behavioral scoring is a **flat 500 placeholder** for every agent. Signed action history and live telemetry are future work, so this component does not yet differentiate agents.
+
+#### Target rubric (not yet implemented)
+
+The metrics below describe the behavioral signals (uptime, error rate, drift detection, incident history) we intend to fold in once verifiable telemetry is available. They are **not** part of the live score today.
 
 **Performance Metrics** (Max 300 points)
 - 99.0%+ uptime: +100
@@ -154,7 +183,19 @@ Result: 0-1000 points
 
 **Purpose**: Measure how openly creators communicate about their agent.
 
-#### Scoring Breakdown
+#### Implemented today
+
+Base **300**, plus signals declared at registration, **capped at 650**:
+
+- Open-source flag set: **+150**
+- Code repository URL provided: **+100**
+- Documentation URL provided: **+100**
+
+A fully-transparent registration caps at 650.
+
+#### Target rubric (not yet implemented)
+
+The criteria below describe the broader transparency signals (transparency reports, community engagement, openness to audits) we are building toward. They are **not** part of the live score today.
 
 **Documentation** (Max 300 points)
 - Public documentation exists: +100
@@ -209,7 +250,20 @@ Result: 0-1000 points
 
 **Purpose**: Assess security posture and incident response.
 
-#### Scoring Breakdown
+#### Implemented today
+
+Base **300**, plus **+100 per declared certification** (up to **+300**, i.e. 3 certifications), **capped at 600**:
+
+- 0 certs → 300
+- 1 cert → 400
+- 2 certs → 500
+- 3 or more certs → 600 (cap)
+
+Certifications are taken from the agent's declared `security_certifications` list; they are self-declared at registration and not yet independently verified.
+
+#### Target rubric (not yet implemented)
+
+The criteria below describe the deeper security signals (verified SOC 2 / ISO 27001 audits, infrastructure controls, incident-response maturity) we are building toward. They are **not** part of the live score today.
 
 **Certifications & Frameworks** (Max 300 points)
 - SOC 2 Type II certification: +100
@@ -265,7 +319,30 @@ Result: 0-1000 points
 
 **Purpose**: Incorporate attestations from verified external parties.
 
-#### Scoring Breakdown
+#### Implemented today
+
+Driven by the real attestation graph with **diminishing returns**:
+
+```
+A = min( 300 + round(18 · √W), 1000 )
+```
+
+where **W** is the frozen-weight sum over *active* attestations from *active* attesters — each attestation contributes `attester_trust_at_issue × tenure_multiplier_at_issue`, frozen at issue time. With no attestations, `W = 0` and the sub-score is the baseline **300**; the square-root curve means each additional vouch adds less than the last, with a hard ceiling of **1000**.
+
+Only attestations from active attesters count. A vouch from a deleted or deactivated identity is dropped (the **dead-vouch filter**), so trust cannot be propped up by vanished attesters.
+
+#### AIR Verified badge
+
+Separate from the numeric sub-score, an agent earns the **AIR Verified** badge when **both** hold:
+
+- **verification_score ≥ 300** — the same frozen-weight sum `W` described above, AND
+- **≥ 3 distinct WHOIS roots** among its attesters — i.e. endorsements rooted in at least three independent domains.
+
+Only active attestations from active attesters are counted toward both thresholds (the dead-vouch filter applies here too). This prevents a single domain, or a cluster of dead identities, from manufacturing a Verified badge.
+
+#### Target rubric (not yet implemented)
+
+The detailed count/diversity/tier scheme below describes a richer attestation model (per-organization diversity bonuses, verifier tiers, negative-attestation deductions) we are exploring. It is **not** the live formula today — the implemented score is the square-root curve above.
 
 **Attestation Count & Quality** (Max 1000 points)
 - Each unique verified attestation: +50 (max 500 from count alone)
@@ -313,32 +390,34 @@ Result: 0-1000 points
 
 ## Score Calculation Example
 
-**Agent: AnalyticsBot-v2**
+**Agent: AnalyticsBot-v2** (using the implemented formula)
 
-| Component | Score | Calculation |
-|-----------|-------|-------------|
-| Provenance | 875 | Creator verified, code public, security audit available |
-| Behavioral | 820 | 99.2% uptime, 0.3% error rate, 30 days data |
-| Transparency | 900 | Complete docs, active issue tracking, quarterly updates |
-| Security | 850 | ISO 27001, TLS 1.3, regular audits, no incidents |
-| Peer Attestations | 750 | 6 independent attestations from 4 organizations |
+| Component | Score | How it was earned |
+|-----------|-------|-------------------|
+| Provenance (P) | 400 | Creator DID present (+100); no org type or creator name → 300 + 100 |
+| Behavioral (B) | 500 | Flat placeholder (telemetry not yet implemented) |
+| Transparency (T) | 550 | Open-source (+150); no repo/docs URL → 300 + 150 |
+| Security (S) | 400 | One declared certification (+100) → 300 + 100 |
+| Peer Attestations (A) | 300 | Baseline; no active attestations yet (W = 0) |
 
 **Trust Score Calculation:**
 ```
-Score = 200 × (875 + 820 + 900 + 850 + 750) / 5
-      = 200 × 4195 / 5
-      = 200 × 839
-      = 838
+Score = round( 0.25·P + 0.25·B + 0.20·T + 0.15·S + 0.15·A )
+      = round( 0.25·400 + 0.25·500 + 0.20·550 + 0.15·400 + 0.15·300 )
+      = round( 100 + 125 + 110 + 60 + 45 )
+      = round( 440 )
+      = 440
 ```
 
-**Grade**: BBB (800-849 range)
+**Grade**: B (≥ 400)
 
 ## Recalculation Frequency
 
-- **Automatic**: Quarterly (every 90 days) with latest behavioral data
-- **On-Demand**: When new attestations added or security incidents reported
-- **Accelerated**: If component score drops > 50 points, recalculated within 5 days
-- **Dispute**: Agent can request recalculation if evidence reviewed
+Scores are recomputed from the live attestation graph and registration record. There is **no quarterly cadence**.
+
+- **Event-driven**: Recalculated immediately when an attestation is created or revoked, when an agent record is edited, or when an attester is deleted (which rescores every subject that attester vouched for, via the dead-vouch filter).
+- **Weekly cron**: A scheduled sweep runs every Sunday at 03:00 UTC (`0 3 * * SUN`) to catch any drift and re-derive scores from current data.
+- **Dispute**: An agent may request a manual recalculation if evidence is reviewed (see below).
 
 ## Dispute & Appeals Process
 
@@ -380,7 +459,7 @@ An agent creator can dispute a score within 30 days of publication by:
 
 All scores and supporting evidence are publicly available:
 - https://agentidentityregistry.org/agents - Full registry search
-- Scores updated quarterly
+- Scores recomputed on-event and by a weekly cron (see Recalculation Frequency)
 - Score histories available (last 24 months)
 - Calculation components publicly displayed
 
@@ -395,13 +474,13 @@ All scores and supporting evidence are publicly available:
 
 ### New Agents (< 30 days operational)
 
-- Behavioral score capped at 500 until 30 days data available
-- Provenance and Transparency scores calculated normally
-- Maximum achievable score: ~750
+- Behavioral is a flat 500 for *every* agent today (telemetry not yet implemented), so new agents are not penalised on that component.
+- Provenance, Transparency, Security, and Peer Attestations are calculated normally from the registration record and attestation graph.
+- Maximum achievable total today is **645** (grade BBB); see the current-ceiling note under Trust Grades.
 
 ### Major Version Updates
 
-- Version bump resets behavioral history
+- A version bump will reset behavioral history *once behavioral telemetry ships* (today behavioral is a flat placeholder, so there is no per-version history yet).
 - Previous version history preserved in registry
 - New AIR ID generated for significant updates
 - Previous version available for reference
@@ -409,7 +488,7 @@ All scores and supporting evidence are publicly available:
 ### Inactive Agents (> 90 days no activity)
 
 - Score automatically flagged "inactive"
-- Behavioral component frozen at last active value
+- Behavioral freezing applies once behavioral telemetry ships; today behavioral is a flat 500 placeholder for active and inactive agents alike.
 - Reactivation reverses flag and resumes scoring
 - Inactive longer than 2 years: may be archived
 
@@ -417,7 +496,7 @@ All scores and supporting evidence are publicly available:
 
 Planned improvements for v2.0:
 - Machine learning-assisted anomaly detection
-- Continuous behavioral scoring (vs. quarterly)
+- Real behavioral scoring from signed action history (replacing today's flat-500 placeholder)
 - Fine-grained capability attestations
 - Domain-specific scoring (e.g., medical, financial)
 - Privacy-preserving score verification

@@ -260,7 +260,7 @@
         e.preventDefault();
         var key = document.getElementById("keyInput").value.trim();
         if (!key) return;
-        fetch(API + "/stats?key=" + encodeURIComponent(key))
+        fetch(API + "/stats", { headers: { "X-Admin-Key": key } })
             .then(function(res) {
                 if (res.status === 401) throw new Error("Unauthorized");
                 return res.json();
@@ -285,8 +285,8 @@
         btn.textContent = "Loading...";
 
         Promise.all([
-            fetch(API + "/stats?key=" + encodeURIComponent(adminKey)).then(function(r) { return r.json(); }),
-            fetch(API + "/recent?key=" + encodeURIComponent(adminKey) + "&limit=50").then(function(r) { return r.json(); })
+            fetch(API + "/stats", { headers: { "X-Admin-Key": adminKey } }).then(function(r) { return r.json(); }),
+            fetch(API + "/recent?limit=50", { headers: { "X-Admin-Key": adminKey } }).then(function(r) { return r.json(); })
         ]).then(function(results) {
             var stats = results[0];
             var recent = results[1];

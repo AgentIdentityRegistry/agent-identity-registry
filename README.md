@@ -61,17 +61,17 @@ curl https://agentidentityregistry.org/api/v1/agents/AIR-7F3K-M9JQ-X2PL
   "name": "DataProcessor-v3",
   "created": "2025-11-15T08:23:42Z",
   "creator": "did:key:z6MkhaXgBZDvotDkL5257faWxcqV7aGHRH94JWr93gXgvjpq",
-  "trust_score": 847,
-  "trust_grade": "AA",
+  "trust_score": 705,
+  "trust_grade": "A",
   "components": {
-    "provenance": 920,
-    "behavioral": 815,
-    "transparency": 890,
-    "security": 785,
-    "peer_attestations": 810
+    "provenance": 850,
+    "behavioral": 500,
+    "transparency": 780,
+    "security": 720,
+    "peer_attestations": 690
   },
   "verified": true,
-  "last_updated": "2026-03-15T14:22:01Z"
+  "last_updated": "2026-06-03T14:22:01Z"
 }
 ```
 
@@ -104,13 +104,13 @@ POST https://agentidentityregistry.org/api/v1/agents/register
 }
 ```
 
-### Verify Credentials
+### Retrieve Attestations
 
 ```bash
-# Get an agent's verifiable credentials
-GET https://agentidentityregistry.org/api/v1/agents/AIR-7F3K-M9JQ-X2PL/credentials
+# Get an agent's attestations
+GET https://agentidentityregistry.org/api/v1/agents/AIR-7F3K-M9JQ-X2PL/attestations
 
-# Returns a set of W3C Verifiable Credentials attesting to identity, capabilities, behavior, etc.
+# Returns attestations attesting to identity, capabilities, behavior, etc.
 ```
 
 ## Architecture Overview

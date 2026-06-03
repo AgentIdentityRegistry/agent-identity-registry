@@ -1,6 +1,6 @@
 # AIR Public Roadmap
 
-**Last Updated**: 2026-05-28
+**Last Updated**: 2026-06-03
 
 ---
 
@@ -17,13 +17,14 @@ AIR has graduated from "early development" to **a working production system with
 - NIST CAISI public comment submitted (April 2026)
 
 **Registry**
-- Live registry API — 11 endpoints at `agentidentityregistry.org/api/v1` (registration, lookup, trust scores, DID documents, admin, OpenAPI)
+- Live registry API — 17 endpoints at `agentidentityregistry.org/api/v1/` (registration, lookup, trust scores, DID documents, attestations, trust graph, badge, admin, OpenAPI)
 - W3C did:wba support with weekly resolution refresh via Cloudflare Workers Cron
 - Service-endpoint discovery: agents publish A2A inbox URLs via their DID document
 - Cloudflare Workers + D1 infrastructure
 
 **Developer surface**
-- `agent-identity-registry` v0.4.0 on PyPI — async Python SDK + `air` CLI + automatic retry/backoff + Service model
+- `agent-identity-registry` v0.5.0 on PyPI — async Python SDK + `air` CLI + automatic retry/backoff + Service model
+- `agent-identity-registry` v0.1.0 on npm — TypeScript SDK with SLSA provenance
 - `air-mcp-server` v0.1.0 on PyPI — drop-in MCP server, integrates with Claude Code and any MCP-aware host
 - OpenAPI 3.1 spec at `agentidentityregistry.org/api/v1/openapi.yaml` — generates clients in any language
 - A2A Rust crate `a2a-rs` (sign/verify primitives, in BossClaw reference implementation)
@@ -69,7 +70,7 @@ AIR has graduated from "early development" to **a working production system with
 
 ### Deliverables
 - [ ] Legal entity established (in progress)
-- [x] **Python SDK published on PyPI** — `agent-identity-registry` v0.4.0 live since 2026-05-28 (prior versions v0.2.0 + v0.3.0 shipped earlier this week)
+- [x] **Python SDK published on PyPI** — `agent-identity-registry` v0.5.0 live (prior versions v0.2.0 through v0.4.0 shipped earlier)
 - [x] **MCP server published on PyPI** — `air-mcp-server` v0.1.0
 - [ ] At least 1 grant application submitted (pending)
 - [ ] Trust score whitepaper published (in scope for Q3)
@@ -89,7 +90,7 @@ AIR has graduated from "early development" to **a working production system with
 - **NEW**: Second federated relay deployed (target: BossClaw + at least one other organization)
 
 ### Deliverables
-- [ ] JS SDK published on npm (de-prioritized — OpenAPI 3.1 spec generates working TS clients for free)
+- [x] **TypeScript SDK published on npm** — `agent-identity-registry` v0.1.0 with SLSA provenance (OpenAPI 3.1 spec also generates clients for free)
 - [x] **Platform integration in progress** — BossClaw reference implementation actively integrating (Phase 3 Waves 1+2 shipped: a2a-rs crate, 20 conformance vectors, signing/verifying impl, end-to-end Tauri integration; Wave 3 transport in active development)
 - [ ] AIR Identity Specification v0.2 draft
 - [ ] Security audit completed and published

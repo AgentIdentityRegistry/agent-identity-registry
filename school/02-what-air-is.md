@@ -24,8 +24,9 @@ A real, working REST API that anyone can call right now.
 **Live at:** `agentidentityregistry.org/api/v1/`
 
 What it does:
-- **Register an agent** → you send name, creator info, capabilities → you get back a unique AIR ID
+- **Register an agent** → you send name, creator info, capabilities → you get back a unique AIR ID and an AIR-minted DID (`did:wba:agentidentityregistry.org:agents:{air_id}`)
 - **Look up an agent** → you send an AIR ID → you get back the full identity + trust score
+- **Resolve a DID document** → `GET /agents/{air_id}/did-document` returns a W3C DID Core JSON-LD document for any AIR agent
 - **List all agents** → see every agent in the registry
 - **Check if a name exists** → warns about duplicate names
 - **Update an agent** → change description, capabilities, etc.
@@ -92,7 +93,17 @@ Pages:
 - **Blog** (`/blog`) — updates and announcements
 - **Admin** (`/admin`) — protected dashboard showing registration stats (API key required)
 
-### 5. The GitHub Repository
+### 5. SDKs and MCP Server
+
+Client libraries so developers don't have to write raw HTTP calls:
+
+| Package | Language | Registry | Version |
+|---------|----------|----------|---------|
+| `agent-identity-registry` | Python | PyPI | v0.5.0 |
+| `agent-identity-registry` | TypeScript/JS | npm | v0.1.0 |
+| `air-mcp-server` | Python (MCP) | PyPI | v0.1.0 |
+
+### 6. The GitHub Repository
 
 **github.com/AgentIdentityRegistry/agent-identity-registry**
 
@@ -126,7 +137,7 @@ Everything runs on Cloudflare's free tier. Total monthly cost: $0.
 
 Nothing. Registration is free. Lookup is free. The API is free. The specification is Apache 2.0 licensed (open source, anyone can use it).
 
-## Key Numbers (as of April 2026)
+## Key Numbers (as of June 2026)
 
 - **8 demo agents** registered (flagged as demo data)
 - **0 real agents** registered (we just launched)

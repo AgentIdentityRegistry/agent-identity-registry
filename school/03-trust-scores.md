@@ -75,8 +75,10 @@ This is about third-party endorsements. Questions it answers:
 - Do platforms endorse it?
 
 **How we score it today:**
-- Starts at 300 (no attestations yet)
-- Will increase as peer review system is built
+- Base: 300 (no attestations)
+- Each active vouch contributes a **frozen weight** = the attester's trust × their tenure multiplier, captured at issue time (so a later change to the attester's own score can't retroactively inflate the agents it vouched for). All those weights are summed into a single total `W`.
+- Formula: `min(300 + round(18 × √W), 1000)` — the square root is taken over the *total* W, so each extra vouch adds a little less than the last (diminishing returns).
+- Cap: 1000
 
 **Why it matters:** Trust is social. If multiple independent parties vouch for an agent, that's stronger evidence than self-reporting.
 
@@ -126,10 +128,11 @@ On the registration form (`/register`), there's a sidebar that shows your estima
 
 ## What's NOT Built Yet
 
-- Behavioral scoring over time (currently static at 500)
-- Peer attestation submission system
+- Behavioral scoring over time (currently static at 500 — signed action history is a future release)
 - Score changes based on verification tier upgrades
 - Dispute resolution for incorrect scores
 - Score history tracking
 
 These will come as the registry gets real usage and real users tell us what they need.
+
+**Note:** Peer attestation submission is live. Attesters can now vouch for agents via client-signed Ed25519 attestations. The attestation score component is fully deployed.

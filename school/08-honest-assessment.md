@@ -24,7 +24,7 @@
 |-------------|---------|
 | ~~"We're a 501(c)(3) nonprofit"~~ | Not filed. We're an "independent nonprofit initiative" |
 | ~~"We have a diverse board"~~ | No board exists. It's 2 people — you and Kenny |
-| ~~"We have SDKs for Python, JS, Go, Rust"~~ | No SDKs exist. API only. |
+| ~~"We have SDKs for Python, JS, Go, Rust"~~ | SDKs for Python (v0.5.0, PyPI) and TypeScript (v0.1.0, npm) are shipped, plus an MCP server (air-mcp-server v0.1.0, PyPI). Go and Rust do not exist. Don't over-claim the language coverage. |
 | ~~"Third-party security audits published quarterly"~~ | No audits have been done |
 | ~~"We have a verifier certification program"~~ | Not built yet |
 | ~~"Verification tiers are operational"~~ | All agents are self-verified. No upgrade path exists yet. |
@@ -36,9 +36,9 @@
 
 | Claim | Nuance |
 |-------|--------|
-| "Built on W3C standards" | True — we use JSON-LD and DID concepts. But we don't yet resolve DIDs or issue formal VCs. Say "built on W3C DID and VC concepts" or "designed to be W3C-compatible." |
+| "Built on W3C standards" | True — we use JSON-LD and DID concepts. We now serve W3C DID documents for AIR-minted agents (`did:wba`) via a live endpoint. We do not yet issue formal W3C Verifiable Credentials. Say "built on W3C DID and VC concepts" or "designed to be W3C-compatible." |
 | "Independent nonprofit" | True in intent. Not legally incorporated yet. Say "independent nonprofit initiative" not "nonprofit foundation." |
-| "Trust scoring works" | True — the API calculates scores. But behavioral and peer attestation components are static (no real data). Say "initial trust scoring based on registration metadata." |
+| "Trust scoring works" | True — the API calculates scores. Provenance, transparency, security, and peer attestation components are live and dynamic. Behavioral is still a flat 500 placeholder (no signed action history yet). Current ceiling is 645/BBB. Say "initial trust scoring with live attestation support; behavioral scoring is a future release." |
 | "Engaging with standards bodies" | True — we've sent emails and gotten responses. But we're not members of any working group yet (DIF membership pending). Say "exploring engagement" or "in early discussions." |
 
 ## How to Talk About Our Stage

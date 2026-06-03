@@ -105,9 +105,11 @@ ISSUER ──── issues credential to ────► HOLDER ──── pre
 - Agent identity documents follow a JSON-LD structure (the same format VCs use)
 - Trust scores are stored and served via API
 
+**Shipped:**
+- DID document endpoint: `GET /agents/{air_id}/did-document` — AIR-minted `did:wba` documents are served directly (self-hosted DB lookup, no external fetch needed)
+
 **Not built yet:**
 - Actual W3C Verifiable Credential issuance (the formal VC format with cryptographic signatures)
-- A DID document endpoint (so others can resolve our DIDs)
 - Selective disclosure (showing partial credentials)
 
 This is one of the things that will come from the CAWG/DIF engagement — understanding exactly what format they need.
