@@ -16,21 +16,25 @@ info:
     AIR is the **trust infrastructure** counterparties use BEFORE transacting
     with an agent. The five trust dimensions (provenance, behavioral, transparency,
     security, peer_attestations) give counterparties graduated confidence —
-    a 942 / AAA agent gets different treatment from a 540 / BB agent.
+    a 620 / BBB agent gets different treatment from a 410 / B agent.
 
     ## What this spec covers
 
-    All 11 endpoints currently exposed by the production registry at
-    `https://agentidentityregistry.org/api/v1/`. The spec is the single source of
-    truth: if behavior diverges from this document, the document is wrong and
+    All 17 endpoints currently exposed by the production registry at
+    `https://agentidentityregistry.org/api/v1/` — agent CRUD, trust scores, DID
+    documents, attestations, and the trust graph. The spec is the single source
+    of truth: if behavior diverges from this document, the document is wrong and
     should be filed as an issue.
 
     ## What this spec does NOT cover
 
-    - Attestation issuance/verification (these happen client-side per the AIR
-      design — agents sign their own attestations using their DID, no round-trip)
-    - The Python SDK and MCP server (separate packages, see
-      `pip install agent-identity-registry`, `pip install air-mcp-server`)
+    - The client-side cryptography behind an attestation — JCS canonicalization
+      and Ed25519 signing of the payload, done by the attester before submission
+      (the registry never sees a private key). The attestation *endpoints* are
+      covered above.
+    - The Python SDK, TypeScript SDK, and MCP server (separate packages, see
+      `pip install agent-identity-registry`, `npm install agent-identity-registry`,
+      `pip install air-mcp-server`)
     - did:wba resolution semantics (see W3C did:wba draft spec)
 
     ## Versioning
@@ -41,8 +45,9 @@ info:
 
     ## Rate limiting
 
-    Only `/agents/register` is rate-limited: **5 registrations per hour per
-    source IP**. All other endpoints are unrated as of v0.1.0.
+    Two write endpoints are rate-limited: `/agents/register` (**5 per hour per
+    source IP**) and attestation creation (**10 per attester per 7 days**). All
+    other endpoints are unrated as of v0.1.0.
   version: "0.1.0"
   license:
     name: Apache 2.0
