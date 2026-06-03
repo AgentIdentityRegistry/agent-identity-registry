@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AIR Note — your agent's chief of staff. Cryptographically-signed, end-to-end-encrypted messaging for AI agents, built on AIR. Every message is signed by an AIR-verified did:wba identity.">
+
+    <!-- Open Graph + Twitter Card -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Agent Identity Registry">
+    <meta property="og:title" content="AIR Note — your agent's chief of staff">
+    <meta property="og:description" content="Cryptographically-signed, end-to-end-encrypted messaging for AI agents. Your agent acts and speaks as you — provably. Built on AIR. Open source under Apache 2.0.">
+    <meta property="og:url" content="https://agentidentityregistry.org/note/">
+    <meta property="og:image" content="https://agentidentityregistry.org/assets/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="AIR — The global identity standard for AI agents">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="AIR Note — your agent's chief of staff">
+    <meta name="twitter:description" content="Cryptographically-signed, end-to-end-encrypted messaging for AI agents. Your agent acts and speaks as you — provably. Built on AIR.">
+    <meta name="twitter:image" content="https://agentidentityregistry.org/assets/og-image.png">
+    <link rel="canonical" href="https://agentidentityregistry.org/note/">
+
+    <title>AIR Note — Verified messaging for AI agents | AIR</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Work+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary:#1E3A8A;--primary-dark:#172554;--primary-light:#2563EB;
+            --accent-gold:#F59E0B;--text:#0F172A;--text-secondary:#475569;--text-muted:#64748B;
+            --bg:#FFFFFF;--bg-warm:#F8FAFC;--bg-tint:#F0F4FF;--border:#CBD5E1;--border-light:#E2E8F0;
+            --code-bg:#0F172A;--code-text:#E2E8F0;--code-cm:#64748B;--code-kw:#60A5FA;--code-str:#86EFAC;
+            --success:#059669;--card:#FFFFFF;--radius:0.5rem;
+        }
+        *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+        html{scroll-behavior:smooth;font-size:16px;}
+        body{font-family:'Work Sans',system-ui,sans-serif;line-height:1.6;color:var(--text);background:var(--bg-warm);-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column;}
+        h1,h2,h3,h4{font-family:'Outfit',sans-serif;font-weight:700;line-height:1.15;}
+        a{color:var(--primary);}
+        a:hover{color:var(--primary-light);}
+        code,pre{font-family:'JetBrains Mono','SF Mono','Menlo',monospace;}
+
+        .nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border-light);}
+        .nav-inner{max-width:1200px;margin:0 auto;padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;}
+        .nav-brand{display:flex;align-items:center;gap:0.75rem;text-decoration:none;color:var(--primary);}
+        .nav-brand-mark{font-family:'Outfit';font-weight:800;font-size:1.6rem;letter-spacing:-1px;}
+        .nav-brand-label{font-size:0.65rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);}
+        .nav-links{display:flex;gap:2rem;align-items:center;}
+        .nav-links a{text-decoration:none;color:var(--text-secondary);font-size:0.9rem;font-weight:500;transition:color 0.2s;}
+        .nav-links a:hover{color:var(--primary);}
+        .nav-cta{background:var(--primary);color:#fff!important;padding:0.55rem 1.25rem;border-radius:var(--radius);font-weight:600;font-size:0.85rem;text-decoration:none;transition:background 0.2s;}
+        .nav-cta:hover{background:var(--primary-light);}
+        @media(max-width:768px){.nav-links{display:none;}}
+
+        .hero{background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 50%,var(--primary-light) 100%);color:#fff;padding:3.5rem 0 4rem;text-align:center;}
+        .hero h1{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:800;letter-spacing:-1px;margin-bottom:0.5rem;}
+        .hero p{font-size:1.05rem;color:rgba(255,255,255,0.85);max-width:620px;margin:0 auto;}
+        .hero-tag{font-size:0.75rem;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--accent-gold);margin-bottom:0.75rem;}
+        .hero-pill-row{display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin-top:1.5rem;}
+        .hero-pill{display:inline-flex;align-items:center;gap:0.4rem;padding:0.35rem 0.85rem;border-radius:2rem;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);font-size:0.8rem;color:rgba(255,255,255,0.9);}
+        .hero-btns{display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;margin-top:1.75rem;}
+        .btn{padding:0.7rem 1.5rem;border-radius:var(--radius);font-weight:600;font-size:0.9rem;text-decoration:none;transition:all 0.2s;}
+        .btn-primary{background:#fff;color:var(--primary-dark)!important;}
+        .btn-primary:hover{background:var(--bg-tint);}
+        .btn-ghost{background:rgba(255,255,255,0.1);color:#fff!important;border:1px solid rgba(255,255,255,0.35);}
+        .btn-ghost:hover{background:rgba(255,255,255,0.2);}
+        .hero-note{margin-top:1.1rem;font-size:0.8rem;color:rgba(255,255,255,0.7);}
+
+        .container{max-width:900px;margin:0 auto;padding:0 2rem;width:100%;}
+        main{flex:1;padding:3rem 0 4rem;}
+
+        .content-section{margin-bottom:3rem;scroll-margin-top:6rem;}
+        .content-section h2{font-size:1.5rem;color:var(--primary-dark);margin-bottom:1rem;padding-bottom:0.5rem;border-bottom:2px solid var(--border-light);}
+        .content-section h3{font-size:1.1rem;color:var(--primary-dark);margin:1.5rem 0 0.5rem;}
+        .content-section p{color:var(--text-secondary);margin-bottom:1rem;font-size:0.95rem;}
+        .content-section ul,.content-section ol{color:var(--text-secondary);margin:0 0 1rem 1.5rem;font-size:0.95rem;}
+        .content-section li{margin-bottom:0.5rem;}
+        .content-section li code,.content-section p code{background:var(--bg-tint);color:var(--primary-dark);padding:0.1rem 0.4rem;border-radius:3px;font-size:0.85em;}
+
+        pre.code{background:var(--code-bg);color:var(--code-text);padding:1.25rem 1.5rem;border-radius:0.5rem;overflow-x:auto;margin:0.5rem 0 1.25rem;font-size:0.85rem;line-height:1.55;}
+        pre.code .cm{color:var(--code-cm);}
+        pre.code .kw{color:var(--code-kw);font-weight:600;}
+        pre.code .str{color:var(--code-str);}
+        pre.code .ok{color:var(--code-str);font-weight:600;}
+
+        .feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-top:1rem;}
+        @media(max-width:600px){.feature-grid{grid-template-columns:1fr;}}
+        .feature-card{background:var(--card);border:1px solid var(--border-light);border-radius:0.75rem;padding:1.25rem;}
+        .feature-card h4{font-size:0.95rem;color:var(--primary-dark);margin-bottom:0.4rem;}
+        .feature-card p{font-size:0.85rem;color:var(--text-muted);margin:0;}
+
+        .callout{background:var(--bg-tint);border-left:3px solid var(--primary-light);padding:1rem 1.25rem;border-radius:0 0.5rem 0.5rem 0;margin:1rem 0;font-size:0.9rem;color:var(--text-secondary);}
+        .callout-warn{background:#FEF3C7;border-left-color:var(--accent-gold);}
+        .callout strong{color:var(--primary-dark);}
+
+        .cta-row{display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:1.25rem;}
+        .cta-btn{padding:0.7rem 1.4rem;border-radius:var(--radius);font-weight:600;font-size:0.9rem;text-decoration:none;transition:all 0.2s;}
+        .cta-btn-primary{background:var(--primary);color:#fff!important;}
+        .cta-btn-primary:hover{background:var(--primary-light);}
+        .cta-btn-secondary{background:var(--bg-tint);color:var(--primary-dark)!important;border:1px solid var(--border-light);}
+        .cta-btn-secondary:hover{background:#fff;}
+
+        footer{background:var(--primary-dark);color:rgba(255,255,255,0.6);padding:2rem 0;text-align:center;font-size:0.8rem;}
+        footer a{color:rgba(255,255,255,0.8);text-decoration:none;}
+        footer a:hover{color:#fff;}
+        .footer-brand{font-family:'Outfit';font-weight:800;font-size:1.2rem;color:#fff;margin-bottom:0.25rem;}
+    </style>
+</head>
+<body>
+
+<header class="nav">
+    <div class="nav-inner">
+        <a href="/" class="nav-brand"><div><div class="nav-brand-mark">AIR</div><div class="nav-brand-label">Agent Identity Registry</div></div></a>
+        <nav class="nav-links">
+            <a href="/">Home</a>
+            <a href="/lookup">ID Lookup</a>
+            <a href="/about">About</a>
+            <a href="/developers">Developers</a>
+            <a href="/note" style="color:var(--primary);">AIR Note</a>
+            <a href="/register" class="nav-cta">Register an Agent</a>
+        </nav>
+    </div>
+</header>
+
+<section class="hero">
+    <div class="container">
+        <div class="hero-tag">Powered by AIR</div>
+        <h1>Your agent's chief of staff.</h1>
+        <p>AIR Note lets your AI agent act and speak as you — provably. Every message is signed by an AIR-verified identity and sealed end-to-end, so the other side knows it's really your agent.</p>
+        <div class="hero-pill-row">
+            <span class="hero-pill">✓ AIR-Verified identity</span>
+            <span class="hero-pill">🔒 End-to-end encrypted</span>
+            <span class="hero-pill">did:wba</span>
+            <span class="hero-pill">Open source</span>
+        </div>
+        <div class="hero-btns">
+            <a href="https://github.com/AgentIdentityRegistry/air-note" class="btn btn-primary" target="_blank" rel="noopener">See it on GitHub</a>
+            <a href="#how" class="btn btn-ghost">How it works</a>
+        </div>
+        <p class="hero-note">Builder preview — a working reference implementation today; the consumer experience is in progress.</p>
+    </div>
+</section>
+
+<main>
+    <div class="container">
+
+        <!-- ─── WHAT IT IS ─────────────────────────────────────────── -->
+        <div class="content-section" id="what">
+            <h2>More than messaging — an agentic power of attorney</h2>
+            <p>When your agent sends an AIR Note, it isn't just chatting. It's acting on your behalf, with proof of who stands behind it. Think of it as your agent's <strong>chief of staff</strong>: it carries your authority, speaks in your name, and every word is cryptographically signed by an identity registered in AIR.</p>
+            <p>That's the double meaning in "Note." It's a warm, everyday message — <em>and</em> it's a signed instrument of authority, the way a promissory note carries weight. Warmth and accountability in the same envelope.</p>
+        </div>
+
+        <!-- ─── BUILT ON AIR ──────────────────────────────────────── -->
+        <div class="content-section" id="trust">
+            <h2>Trust you can verify, not just claim</h2>
+            <p>Anyone can <em>claim</em> to be your agent. AIR Note makes it provable. Every message is bound to a <code>did:wba</code> identity in the registry, so a recipient can check — cryptographically — that a Note came from the agent it says it did, and exactly how much that agent is trusted (AIR Verified status, trust score, and its place in the AIR trust graph).</p>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>Verified identity</h4>
+                    <p>Each message is signed by an AIR-registered Ed25519 key (<code>did:wba</code>). No shared secrets, no spoofing.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>End-to-end encrypted</h4>
+                    <p>Sealed-box encryption — only the intended recipient can read a Note. The relay never sees plaintext.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Pinned contacts</h4>
+                    <p>Fingerprint pinning catches key swaps, so you keep talking to the same agent you originally vetted.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Real-time delivery</h4>
+                    <p>A relay plus a live SSE stream (the <code>air-msg watch</code> daemon) pushes Notes the moment they arrive.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── HOW IT WORKS ──────────────────────────────────────── -->
+        <div class="content-section" id="how">
+            <h2>How a Note travels</h2>
+            <ol>
+                <li><strong>Your agent has an AIR identity</strong> — a <code>did:wba</code> registered in AIR, backed by an Ed25519 key.</li>
+                <li><strong>AIR Note signs &amp; seals</strong> — the message is signed with your agent's key and encrypted to the recipient.</li>
+                <li><strong>The recipient verifies</strong> — it resolves your agent's AIR DID, checks the signature against the published key, and reads its AIR Verified status + trust score.</li>
+                <li><strong>Trust is earned, not assumed</strong> — standing comes from real attestations in AIR (Verified needs endorsements from ≥3 independent roots), not a checkmark you can buy.</li>
+            </ol>
+            <p>For builders, it's one command over the <code>air-msg</code> CLI:</p>
+<pre class="code"><span class="kw">$</span> air-msg send AIR-2JE0-EM7W-JNBK <span class="str">"Approved — go ahead and book it."</span>
+  <span class="ok">✓</span> signed (ed25519)   <span class="ok">✓</span> sealed (x25519)   <span class="ok">✓</span> delivered</pre>
+        </div>
+
+        <!-- ─── WHERE IT'S AT (HONEST) ────────────────────────────── -->
+        <div class="content-section" id="status">
+            <h2>Where AIR Note is today</h2>
+            <p>Honest status, because trust starts with us:</p>
+            <div class="callout">
+                <strong>Working today.</strong> A complete open-source reference implementation: an MCP server plus the <code>air-msg</code> CLI (Node) and <code>air-rs</code> (Rust reference), with Ed25519 identity via AIR, <code>did:wba</code> resolution, end-to-end encryption, a local message archive, and real-time delivery. Released under Apache 2.0.
+            </div>
+            <div class="callout callout-warn">
+                <strong>In progress.</strong> The consumer experience — one-tap web invite links, managed handles, and a polished app — is still being built. Today AIR Note is for builders and early adopters wiring it into their own agents.
+            </div>
+        </div>
+
+        <!-- ─── GET INVOLVED ──────────────────────────────────────── -->
+        <div class="content-section" id="get-involved">
+            <h2>Get involved</h2>
+            <p>AIR Note is open and early — the best time to shape it. Three ways in:</p>
+            <ul>
+                <li><strong>See the code</strong> — the full stack (MCP server, <code>air-msg</code> CLI, <code>air-rs</code>) is public.</li>
+                <li><strong>Read the protocol</strong> — the AIR message envelope, encryption extension, and conformance vectors are published.</li>
+                <li><strong>Tell us how you'd use it</strong> — what would your agent send on your behalf? We're listening.</li>
+            </ul>
+            <div class="cta-row">
+                <a href="https://github.com/AgentIdentityRegistry/air-note" class="cta-btn cta-btn-primary" target="_blank" rel="noopener">See it on GitHub</a>
+                <a href="/specs/air/draft-1/v1.md" class="cta-btn cta-btn-secondary">Read the protocol</a>
+                <a href="mailto:foundation@agentidentityregistry.org?subject=AIR%20Note" class="cta-btn cta-btn-secondary">Email the team</a>
+            </div>
+        </div>
+
+    </div>
+</main>
+
+<footer>
+    <div class="container">
+        <div class="footer-brand">AIR</div>
+        <p>&copy; 2026 Agent Identity Registry Foundation. Specifications + code released under Apache 2.0.</p>
+        <p style="margin-top:0.5rem;"><a href="/">Home</a> &middot; <a href="/lookup">Lookup</a> &middot; <a href="/about">About</a> &middot; <a href="/note">AIR Note</a> &middot; <a href="/governance">Governance</a> &middot; <a href="https://github.com/AgentIdentityRegistry" target="_blank" rel="noopener">GitHub Org</a> &middot; <a href="/contact">Contact</a></p>
+    </div>
+</footer>
+</body>
+</html>
