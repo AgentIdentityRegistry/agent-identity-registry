@@ -77,7 +77,7 @@
           "url": "https://agentidentityregistry.org/",
           "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
           "publisher": { "@id": "https://agentidentityregistry.org/#organization" },
-          "description": "Open API, Python SDK, and MCP server for issuing cryptographically verifiable AIR IDs to AI agents — with did:wba resolution, attestation-based Verified status, and 0-1000 trust scoring."
+          "description": "Open API, Python SDK, and MCP server for issuing cryptographically verifiable AIR IDs to AI agents — with did:wba resolution, attestation-based Verified status, factual evidence labels, 0-1000 trust scoring, and an externally-anchored, tamper-evident audit log."
         }
       ]
     }
@@ -442,7 +442,7 @@
         <div>
             <div class="section-label">Methodology</div>
             <h2 class="section-title">Trust, measured transparently</h2>
-            <p class="section-desc">The AIR Trust Score is a composite of five independently auditable components. The full methodology is published openly — and because trust is relational, AIR also exposes a public <strong>trust graph</strong> (who vouches for whom) through the API.</p>
+            <p class="section-desc">The AIR Trust Score is a composite of five independently auditable components. The full methodology is published openly — and because trust is relational, AIR also exposes a public <strong>trust graph</strong> (who vouches for whom) through the API. Every record now also carries a factual <strong>evidence label</strong> (Verified, Attested, Self-declared, or Registered) that describes what evidence exists — not a verdict or endorsement. And every change to an agent's record is written to a hash-linked <strong>audit log</strong> whose tip is anchored weekly to a public, third-party-verifiable repo — tamper-evident against the operator back to the last weekly anchor.</p>
             <div class="score-methodology">
                 <div class="method-item">
                     <div class="method-weight">25%</div>

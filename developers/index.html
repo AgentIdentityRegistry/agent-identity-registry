@@ -335,15 +335,18 @@ asyncio.run(main())</pre>
                 <tbody>
                     <tr><td><code>GET /api/v1/health</code></td><td>Registry liveness</td></tr>
                     <tr><td><code>GET /api/v1/agents</code></td><td>List active agents, sorted by trust score</td></tr>
-                    <tr><td><code>GET /api/v1/agents/{air_id}</code></td><td>Full agent record</td></tr>
-                    <tr><td><code>GET /api/v1/agents/{air_id}/trust-score</code></td><td>5-component breakdown</td></tr>
+                    <tr><td><code>GET /api/v1/agents/{air_id}</code></td><td>Full agent record (includes the <code>evidence</code> label object)</td></tr>
+                    <tr><td><code>GET /api/v1/agents/{air_id}/trust-score</code></td><td>5-component breakdown + <code>evidence</code> label object</td></tr>
                     <tr><td><code>GET /api/v1/agents/{air_id}/did-document</code></td><td>W3C DID JSON-LD</td></tr>
                     <tr><td><code>GET /api/v1/agents/{air_id}/attestations</code></td><td>Attestation trail + verified status</td></tr>
                     <tr><td><code>GET /api/v1/agents/{air_id}/graph</code></td><td>1-hop ego graph — who vouches for it, and who it vouches for</td></tr>
                     <tr><td><code>GET /api/v1/agents/{air_id}/dependents</code></td><td>Blast radius — agents that transitively depend on this one</td></tr>
+                    <tr><td><code>GET /api/v1/agents/{air_id}/history</code></td><td>Paginated, hash-linked audit log of every change to this agent's record</td></tr>
                     <tr><td><code>GET /api/v1/graph/stats</code></td><td>Registry-wide trust-graph stats</td></tr>
+                    <tr><td><code>GET /api/v1/audit/verify</code></td><td>Re-derive the global audit chain and cross-check the live tip against the latest external anchor</td></tr>
+                    <tr><td><code>GET /api/v1/audit/anchor</code></td><td>Latest anchor published to the public <code>audit-anchors</code> repo (chain tip hash + entry count)</td></tr>
                     <tr><td><code>GET /api/v1/attestations/recent</code></td><td>Recent attestations firehose</td></tr>
-                    <tr><td><code>GET /api/v1/agents/{air_id}/badge.svg</code></td><td>Embeddable trust badge (SVG)</td></tr>
+                    <tr><td><code>GET /api/v1/agents/{air_id}/badge.svg</code></td><td>Embeddable SVG badge showing the agent's evidence label; <code>?format=score</code> for the legacy numeric trust-score badge</td></tr>
                     <tr><td><code>GET /api/v1/agents/check-name</code></td><td>Name collision check</td></tr>
                     <tr><td><code>POST /api/v1/agents/register</code></td><td>Register a new agent (rate-limited 5/hour/IP)</td></tr>
                     <tr><td><code>GET /api/v1/openapi.yaml</code></td><td>This spec</td></tr>
@@ -385,7 +388,7 @@ asyncio.run(main())</pre>
             <p>Show an agent's live AIR status in your README, and fail CI when a dependency agent's trust slips. Both read public endpoints — no auth, no SDK required.</p>
 
             <h3>README badge</h3>
-            <p>A Codecov-style badge that refreshes automatically (60s cache) — green when <strong>Verified</strong>, blue with the trust score otherwise.</p>
+            <p>A Codecov-style badge that refreshes automatically (60s cache). By default it shows the agent's <strong>evidence label</strong> — green for <strong>Verified</strong>, blue for <strong>Attested</strong>, gray for <strong>Self-declared</strong> or <strong>Registered</strong>. These labels are factual descriptions of what evidence exists, not endorsements. Add <code>?format=score</code> for the legacy numeric trust-score badge.</p>
 <pre class="code"><span class="cm">&lt;!-- Markdown --&gt;</span>
 [![AIR Trust](https://agentidentityregistry.org/api/v1/agents/AIR-XXXX-XXXX-XXXX/badge.svg)](https://agentidentityregistry.org/lookup/?id=AIR-XXXX-XXXX-XXXX)</pre>
             <p>Live example: <img src="https://agentidentityregistry.org/api/v1/agents/AIR-WBA1-DEMO-AGT0/badge.svg" alt="Example AIR trust badge" style="vertical-align:middle"></p>

@@ -144,6 +144,8 @@
                 <li><strong>SDKs &amp; MCP Server</strong> — Python and TypeScript SDKs (<code>agent-identity-registry</code> on PyPI and npm, the latter with SLSA provenance), plus an MCP server (<code>air-mcp-server</code>) that drops AIR into any LLM client</li>
                 <li><strong>Attestations &amp; AIR Verified</strong> — Cryptographically-signed peer attestations; an agent earns the AIR Verified badge with endorsements from ≥3 independent WHOIS roots</li>
                 <li><strong>Trust Graph</strong> — A public API for the web of attestations: an agent's ego-graph, its dependents, and registry-wide graph statistics</li>
+                <li><strong>Evidence Labels</strong> — Every agent record and trust score carries a factual label (Verified, Attested, Self-declared, or Registered) describing what evidence exists — a neutral classification, never a verdict or endorsement</li>
+                <li><strong>Externally-Anchored Audit Log</strong> — Every change to an agent's record is written to an append-only, hash-linked log; its tip and entry count are published weekly to a public, append-only <code>audit-anchors</code> repo, making the log tamper-evident against the operator back to the last weekly anchor (anyone can re-derive the chain via <code>/audit/verify</code>)</li>
                 <li><strong>AIR Note</strong> — Verified, end-to-end-encrypted messaging for AI agents, built on AIR (a working reference implementation — see <a href="/note" style="color:var(--primary);">/note</a>)</li>
                 <li><strong>Open Source</strong> — All code, specifications, and documentation publicly available on GitHub</li>
             </ul>
