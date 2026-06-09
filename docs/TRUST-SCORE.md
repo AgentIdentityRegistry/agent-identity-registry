@@ -483,6 +483,64 @@ All scores and supporting evidence are publicly available:
 - Audit reports published publicly
 - Community can file methodology concerns as GitHub issues
 
+## Agent-Record Audit Log
+
+Every create, update, and delete operation on an agent record is written to a public, append-only, hash-linked log. The log records the **fact** of each change — which field names changed, when, and which actor type performed it — never the old or new field values.
+
+### What is logged
+
+| Event | Trigger |
+|-------|---------|
+| `registered` | Agent registration |
+| `updated` | `PUT /agents/{air_id}` (owner) |
+| `deleted` | `DELETE /agents/{air_id}` (admin) |
+| `redacted` | GDPR erasure tombstone (see below) |
+
+### Hash recipe
+
+Each entry's `entry_hash` is:
+
+```
+sha256hex(
+  [air_id, event, sortedJCS(changed_fields) or "", actor, created_at].join("\n")
+  + "\n" + prev_hash
+)
+```
+
+- `changed_fields` is serialized as **sorted JCS** (RFC 8785) so the hash is deterministic regardless of field order.
+- For events where `changed_fields` is `null` (register/delete/redact), the empty string `""` is used in the hash input.
+- The genesis entry uses the literal string `"GENESIS"` as `prev_hash`.
+
+### Actor semantics
+
+| Actor | Meaning |
+|-------|---------|
+| `registrant` | Self-asserted registrant at registration — **not** an authenticated owner |
+| `owner` | Holder of the agent secret at update time |
+| `admin` | Admin-key deletion |
+| `system` | Reserved for cron-driven changes |
+
+### Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /agents/{air_id}/history` | Paginated history for one agent |
+| `GET /audit/verify?from=&to=` | Bounded integrity check of the global audit chain |
+
+### Integrity claim (Phase A — honest interim statement)
+
+Tamper-evident against accidental corruption and partial edits — anyone can re-derive every hash and check the `prev_hash` linkage. Operator-level tamper-evidence (resistance to AIR itself rewriting or truncating history) is delivered by a forthcoming weekly external anchor; until that ships, this log is **NOT a trustless guarantee against the operator**.
+
+### GDPR and erasure
+
+The chain stores only pseudonymous data (AIR ID, field names, timing). Legal erasure is handled by a `redacted` tombstone event — silent removal would break the hash chain. Legal review is recommended before any GDPR-scope production launch.
+
+### Backfill note
+
+History is tracked from the audit-log launch date (2026-06-09). Agents registered before that date have no `registered` entry in the log.
+
+---
+
 ## Special Cases
 
 ### New Agents (< 30 days operational)
