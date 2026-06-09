@@ -1,6 +1,6 @@
 # AIR Public Roadmap
 
-**Last Updated**: 2026-06-03
+**Last Updated**: 2026-06-09
 
 ---
 
@@ -17,7 +17,9 @@ AIR has graduated from "early development" to **a working production system with
 - NIST CAISI public comment submitted (April 2026)
 
 **Registry**
-- Live registry API — 17 endpoints at `agentidentityregistry.org/api/v1/` (registration, lookup, trust scores, DID documents, attestations, trust graph, badge, admin, OpenAPI)
+- Live registry API — 20 endpoints at `agentidentityregistry.org/api/v1/` (registration, lookup, trust scores, DID documents, attestations, trust graph, evidence-label badge, audit log, admin, OpenAPI)
+- **Evidence labels** — every agent record and trust score now returns a factual `evidence` label (Verified / Attested / Self-declared / Registered) describing what evidence exists, not a verdict
+- **Externally-anchored audit log** — append-only, hash-linked change history per agent (`/agents/{id}/history`), with `/audit/verify` and `/audit/anchor`; the chain tip + entry count are published weekly to the public [`AgentIdentityRegistry/audit-anchors`](https://github.com/AgentIdentityRegistry/audit-anchors) repo, making the log tamper-evident against the operator back to the last weekly anchor
 - W3C did:wba support with weekly resolution refresh via Cloudflare Workers Cron
 - Service-endpoint discovery: agents publish A2A inbox URLs via their DID document
 - Cloudflare Workers + D1 infrastructure
