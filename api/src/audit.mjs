@@ -45,6 +45,27 @@ export async function recordAuditEvent(db, { airId, event, changedFields, actor,
   ).bind(airId, event, canonicalFields === "" ? null : canonicalFields, actor, now, prevHash, entryHash);
 }
 
+// ---- External anchor (Phase B) -------------------------------------------
+// Build the anchor record committed weekly to the public audit-anchors repo so
+// the chain's integrity is verifiable WITHOUT trusting AIR's own DB.
+export async function buildAnchor(db, now) {
+  const { tip_hash, count } = await computeChainTip(db);
+  return { anchored_at: now, tip_hash, entry_count: count };
+}
+
+// Publish an anchor via an INJECTED putFile({ path, content, message }) sink
+// (the real GitHub adapter is wired at the call site — this module stays
+// network-free + unit-testable). Path is dated so anchors never overwrite.
+export async function publishAnchor(anchor, { putFile } = {}) {
+  if (typeof putFile !== "function") throw new Error("publishAnchor requires a putFile(args) function");
+  const date = anchor.anchored_at.slice(0, 10); // YYYY-MM-DD
+  return putFile({
+    path: `anchors/${date}.json`,
+    content: JSON.stringify(anchor),
+    message: `anchor ${date}: tip ${anchor.tip_hash.slice(0, 12)} (${anchor.entry_count} entries)`,
+  });
+}
+
 // Bounded walk: recompute each hash + check linkage. Returns the integrity verdict.
 export async function verifyAuditChain(db, { fromId = 0, toId = null } = {}) {
   const rows = (await db.prepare(

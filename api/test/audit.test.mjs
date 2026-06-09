@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makeTestD1 } from "./helpers/d1.mjs";
-import { canonicalizeChangedFields, auditEntryHash, GENESIS, recordAuditEvent, computeChainTip, verifyAuditChain } from "../src/audit.mjs";
+import { canonicalizeChangedFields, auditEntryHash, GENESIS, recordAuditEvent, computeChainTip, verifyAuditChain, buildAnchor, publishAnchor } from "../src/audit.mjs";
 
 test("0006: agent_audit_log table exists with UNIQUE(prev_hash)", async () => {
   const db = makeTestD1();
@@ -57,4 +57,28 @@ test("chain: UNIQUE(prev_hash) blocks a fork", async () => {
   const b = await recordAuditEvent(db, { airId: "AIR-CCCC-CCCC-CCCC", event: "updated", changedFields: ["description"], actor: "owner", now: "t3" });
   await a.run();
   await assert.rejects(b.run());
+});
+
+test("buildAnchor returns tip + count for the current chain", async () => {
+  const db = makeTestD1();
+  await record(db, { airId: "AIR-AAAA-AAAA-AAAA", event: "registered", changedFields: null, actor: "registrant", now: "2026-01-01T00:00:00Z" });
+  const a = await buildAnchor(db, "2026-01-07T03:00:00Z");
+  assert.equal(a.entry_count, 1);
+  assert.equal(a.anchored_at, "2026-01-07T03:00:00Z");
+  assert.match(a.tip_hash, /^[0-9a-f]{64}$/);
+});
+
+test("publishAnchor delegates to the injected putFile with a dated path + JSON body", async () => {
+  let captured;
+  const fakePutFile = async (args) => { captured = args; return { ok: true, commit: "abc123" }; };
+  const anchor = { anchored_at: "2026-01-07T03:00:00Z", tip_hash: "deadbeef", entry_count: 5 };
+  const res = await publishAnchor(anchor, { putFile: fakePutFile });
+  assert.equal(res.ok, true);
+  assert.ok(captured.path.includes("2026-01-07"));      // dated path
+  assert.deepEqual(JSON.parse(captured.content), anchor); // exact JSON body
+  assert.ok(typeof captured.message === "string" && captured.message.length > 0); // commit message
+});
+
+test("publishAnchor throws if no putFile is provided", async () => {
+  await assert.rejects(publishAnchor({ anchored_at:"x", tip_hash:"y", entry_count:0 }, {}));
 });
