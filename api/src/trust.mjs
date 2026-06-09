@@ -148,6 +148,17 @@ export function computeEvidenceLabel(verifiedStatus = {}, components = {}) {
   return "Registered";
 }
 
+// Assembles the full public `evidence` object surfaced by the API. Single source
+// so getAgent + getTrustScore can never drift apart.
+export function buildEvidence(verifiedStatus, components) {
+  return {
+    label: computeEvidenceLabel(verifiedStatus, components),
+    definition_version: EVIDENCE_LABELS_VERSION,
+    basis: EVIDENCE_LABEL_DISCLAIMER,
+    criteria_url: EVIDENCE_CRITERIA_URL,
+  };
+}
+
 // When an attester's status changes (today: deletion), every subject it
 // actively vouches for must be rescored so dead vouches stop counting.
 export async function recomputeDependentsOf(attesterAirId, db) {

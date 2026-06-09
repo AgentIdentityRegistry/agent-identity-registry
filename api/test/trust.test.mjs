@@ -222,6 +222,7 @@ export { insertAgent, insertAttestation };
 
 import {
   computeEvidenceLabel,
+  buildEvidence,
   EVIDENCE_LABELS_VERSION,
   EVIDENCE_LABEL_DISCLAIMER,
   EVIDENCE_CRITERIA_URL,
@@ -265,4 +266,12 @@ test("evidence label governance constants are present", () => {
   assert.equal(EVIDENCE_LABELS_VERSION, "2026-06-09");
   assert.match(EVIDENCE_LABEL_DISCLAIMER, /not an endorsement/i);
   assert.ok(EVIDENCE_CRITERIA_URL.startsWith("https://"));
+});
+
+test("buildEvidence: assembles the full evidence object", () => {
+  const e = buildEvidence({ verified: false, attestation_count: 0 }, { provenance: 500 });
+  assert.equal(e.label, "Self-declared");
+  assert.equal(e.definition_version, EVIDENCE_LABELS_VERSION);
+  assert.match(e.basis, /not an endorsement/i);
+  assert.equal(e.criteria_url, EVIDENCE_CRITERIA_URL);
 });

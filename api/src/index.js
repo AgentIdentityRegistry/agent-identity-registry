@@ -6,7 +6,7 @@
 // wrangler.toml turns the .yaml import into a string at build time.
 import OPENAPI_YAML from "../openapi.yaml";
 import { base58Decode, base64urlToBytes, ed25519ToMultibase, documentContainsKey } from "./did-keys.mjs";
-import { calculateInitialTrustScore, computeVerifiedStatus, recomputeTrustScore, recomputeDependentsOf, computeEvidenceLabel, EVIDENCE_LABELS_VERSION, EVIDENCE_LABEL_DISCLAIMER, EVIDENCE_CRITERIA_URL } from "./trust.mjs";
+import { calculateInitialTrustScore, computeVerifiedStatus, recomputeTrustScore, recomputeDependentsOf, computeEvidenceLabel, buildEvidence, EVIDENCE_LABEL_DISCLAIMER } from "./trust.mjs";
 
 export default {
   async fetch(request, env) {
@@ -778,16 +778,11 @@ async function getAgent(airId, db) {
       security: agent.security,
       peer_attestations: agent.peer_attestations,
     },
-    evidence: {
-      label: computeEvidenceLabel(verifiedStatus, {
-        provenance: agent.provenance,
-        transparency: agent.transparency,
-        security: agent.security,
-      }),
-      definition_version: EVIDENCE_LABELS_VERSION,
-      basis: EVIDENCE_LABEL_DISCLAIMER,
-      criteria_url: EVIDENCE_CRITERIA_URL,
-    },
+    evidence: buildEvidence(verifiedStatus, {
+      provenance: agent.provenance,
+      transparency: agent.transparency,
+      security: agent.security,
+    }),
   });
 }
 
@@ -953,16 +948,11 @@ async function getTrustScore(airId, db) {
       peer_attestations: score.peer_attestations,
     },
     calculated_at: score.calculated_at,
-    evidence: {
-      label: computeEvidenceLabel(verifiedStatus, {
-        provenance: score.provenance,
-        transparency: score.transparency,
-        security: score.security,
-      }),
-      definition_version: EVIDENCE_LABELS_VERSION,
-      basis: EVIDENCE_LABEL_DISCLAIMER,
-      criteria_url: EVIDENCE_CRITERIA_URL,
-    },
+    evidence: buildEvidence(verifiedStatus, {
+      provenance: score.provenance,
+      transparency: score.transparency,
+      security: score.security,
+    }),
   });
 }
 
@@ -1721,11 +1711,14 @@ async function revokeAttestation(request, subjectAirId, attestationIdRaw, db) {
 }
 
 // GET /api/v1/agents/{air_id}/badge.svg
-// Codecov-style SVG badge. Three tiers:
-//   - Verified (computeVerifiedStatus.verified): green
-//   - Has trust score: blue with score
-//   - Not found / no score: gray "unknown"
-// 60s cache (we want badges to reflect Verified-status changes quickly).
+// SVG badge showing the agent's evidence label (default):
+//   - Verified  -> green "Verified ✓"
+//   - Attested  -> blue "Attested"
+//   - Self-declared / Registered -> gray (the label word)
+//   - agent not found -> gray "not found"
+// ?format=score returns the legacy numeric badge ("AIR Trust | <score>", blue;
+//   gray "no score" if none). The <title> carries the neutrality disclaimer.
+// 60s cache (so badges reflect label changes quickly).
 async function getBadgeSvg(airId, db, format) {
   const agent = await db.prepare(`
     SELECT a.air_id, a.status, t.total_score, t.provenance, t.transparency, t.security
@@ -1739,7 +1732,10 @@ async function getBadgeSvg(airId, db, format) {
     rightLabel = "not found";
     rightColor = "#9f9f9f";
   } else if (format === "score") {
-    // Legacy numeric badge for existing embedders.
+    // Legacy numeric badge (opt-in via ?format=score): always shows the raw
+    // score number, even for Verified agents. The default (no param) shows the
+    // evidence-label word. ?format=score is a new param, so no existing embedder
+    // relied on the old Verified->green default here.
     leftLabel = "AIR Trust";
     rightLabel = agent.total_score != null ? String(agent.total_score) : "no score";
     rightColor = agent.total_score != null ? "#007ec6" : "#9f9f9f";
