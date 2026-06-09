@@ -694,13 +694,24 @@ paths:
     parameters:
       - $ref: "#/components/parameters/AirId"
     get:
-      summary: Trust/Verified status badge (SVG)
+      summary: Evidence-label status badge (SVG)
       operationId: getBadgeSvg
       tags: [public]
       description: |
-        Codecov-style SVG badge: green "Verified ✓" when the agent holds AIR
-        Verified status, blue with the trust score otherwise, gray if unknown.
+        SVG badge showing the agent's evidence label (default): green "Verified ✓"
+        for Verified, blue "Attested", gray for "Self-declared"/"Registered", and
+        gray "not found" for an unknown agent. The SVG <title> carries the
+        neutrality disclaimer. Pass `?format=score` for the legacy numeric badge
+        ("AIR Trust | <score>", blue; gray "no score" if none).
         60-second edge cache; CORS-open for embedding in any README.
+      parameters:
+        - name: format
+          in: query
+          required: false
+          description: Pass `score` to render the legacy numeric trust-score badge instead of the evidence label.
+          schema:
+            type: string
+            enum: [score]
       responses:
         "200":
           description: SVG badge
@@ -880,6 +891,32 @@ components:
           maximum: 1000
           description: Endorsements from other registered agents. Currently a flat 300 baseline.
 
+    EvidenceLabel:
+      type: object
+      description: >
+        Factual classification of WHAT evidence exists for an agent — never a verdict
+        or endorsement. Definitions are versioned (see docs/TRUST-SCORE.md "Evidence Labels").
+      properties:
+        label:
+          type: string
+          enum: [Verified, Attested, Self-declared, Registered]
+          description: >
+            Verified = verification_score >= 300 across >=3 distinct WHOIS roots;
+            Attested = some independent attestation, below the Verified bar;
+            Self-declared = score from self-reported data, no independent check;
+            Registered = anonymous baseline, no enrichment, no attestations.
+        definition_version:
+          type: string
+          description: Version of the published label criteria these results were computed under.
+          examples: ["2026-06-09"]
+        basis:
+          type: string
+          description: Standard disclaimer — mechanically derived, not an endorsement.
+        criteria_url:
+          type: string
+          format: uri
+      required: [label, definition_version, basis, criteria_url]
+
     TrustScore:
       type: object
       required: [air_id, total_score, grade, components, calculated_at]
@@ -900,6 +937,8 @@ components:
         calculated_at:
           type: string
           format: date-time
+        evidence:
+          $ref: "#/components/schemas/EvidenceLabel"
 
     # ---------- AGENT RECORDS ----------
 
@@ -1006,6 +1045,8 @@ components:
             - type: "null"
         verification_status:
           $ref: "#/components/schemas/VerificationStatus"
+        evidence:
+          $ref: "#/components/schemas/EvidenceLabel"
 
     AgentSummary:
       type: object

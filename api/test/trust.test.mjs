@@ -219,3 +219,59 @@ test("integration: create→recompute raises trust; delete-attester→recompute 
 
 // exported for reuse by later test tasks
 export { insertAgent, insertAttestation };
+
+import {
+  computeEvidenceLabel,
+  buildEvidence,
+  EVIDENCE_LABELS_VERSION,
+  EVIDENCE_LABEL_DISCLAIMER,
+  EVIDENCE_CRITERIA_URL,
+} from "../src/trust.mjs";
+
+test("computeEvidenceLabel: Verified wins over everything", () => {
+  assert.equal(computeEvidenceLabel({ verified: true, attestation_count: 0 }, {}), "Verified");
+  assert.equal(
+    computeEvidenceLabel({ verified: true, attestation_count: 5 }, { provenance: 600 }),
+    "Verified"
+  );
+});
+
+test("computeEvidenceLabel: Attested when not verified but has attestations", () => {
+  assert.equal(
+    computeEvidenceLabel({ verified: false, attestation_count: 1 }, { provenance: 300 }),
+    "Attested"
+  );
+});
+
+test("computeEvidenceLabel: Self-declared when a component exceeds the 300 baseline", () => {
+  assert.equal(computeEvidenceLabel({ verified: false, attestation_count: 0 }, { provenance: 500, transparency: 300, security: 300 }), "Self-declared");
+  assert.equal(computeEvidenceLabel({ verified: false, attestation_count: 0 }, { provenance: 300, transparency: 450, security: 300 }), "Self-declared");
+  assert.equal(computeEvidenceLabel({ verified: false, attestation_count: 0 }, { provenance: 300, transparency: 300, security: 400 }), "Self-declared");
+});
+
+test("computeEvidenceLabel: Registered at bare baseline", () => {
+  assert.equal(
+    computeEvidenceLabel({ verified: false, attestation_count: 0 }, { provenance: 300, transparency: 300, security: 300 }),
+    "Registered"
+  );
+});
+
+test("computeEvidenceLabel: non-finite/missing components → Registered (when not verified/attested)", () => {
+  assert.equal(computeEvidenceLabel({ verified: false, attestation_count: 0 }, {}), "Registered");
+  assert.equal(computeEvidenceLabel({ verified: false, attestation_count: 0 }, { provenance: null, transparency: undefined, security: NaN }), "Registered");
+  assert.equal(computeEvidenceLabel({}, {}), "Registered");
+});
+
+test("evidence label governance constants are present", () => {
+  assert.equal(EVIDENCE_LABELS_VERSION, "2026-06-09");
+  assert.match(EVIDENCE_LABEL_DISCLAIMER, /not an endorsement/i);
+  assert.ok(EVIDENCE_CRITERIA_URL.startsWith("https://"));
+});
+
+test("buildEvidence: assembles the full evidence object", () => {
+  const e = buildEvidence({ verified: false, attestation_count: 0 }, { provenance: 500 });
+  assert.equal(e.label, "Self-declared");
+  assert.equal(e.definition_version, EVIDENCE_LABELS_VERSION);
+  assert.match(e.basis, /not an endorsement/i);
+  assert.equal(e.criteria_url, EVIDENCE_CRITERIA_URL);
+});

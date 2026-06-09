@@ -125,6 +125,40 @@ export async function recomputeTrustScore(airId, db) {
   ).bind(score.total_score, score.grade, score.provenance, score.behavioral, score.transparency, score.security, score.peer_attestations, now, airId).run();
 }
 
+// ---- Evidence labels (item #6) --------------------------------------------
+// A FACTUAL label describing WHAT evidence exists for an agent — never a verdict.
+// Definitions are a versioned, published governance artifact (see docs/TRUST-SCORE.md
+// "Evidence Labels"); bump EVIDENCE_LABELS_VERSION + update the docs when criteria change.
+export const EVIDENCE_LABELS_VERSION = "2026-06-09";
+export const EVIDENCE_LABEL_DISCLAIMER =
+  "Derived mechanically from published criteria; not an endorsement or certification by AIR.";
+export const EVIDENCE_CRITERIA_URL =
+  "https://agentidentityregistry.org/api/v1/openapi.yaml";
+
+// verifiedStatus: { verified, attestation_count } from computeVerifiedStatus().
+// components:      { provenance, transparency, security } from the trust_scores row
+//                  (300 is each one's anonymous baseline; behavioral + peer are excluded).
+export function computeEvidenceLabel(verifiedStatus = {}, components = {}) {
+  if (verifiedStatus.verified) return "Verified";
+  if (Number(verifiedStatus.attestation_count) > 0) return "Attested";
+  const above = (v) => Number.isFinite(v) && v > 300;
+  if (above(components.provenance) || above(components.transparency) || above(components.security)) {
+    return "Self-declared";
+  }
+  return "Registered";
+}
+
+// Assembles the full public `evidence` object surfaced by the API. Single source
+// so getAgent + getTrustScore can never drift apart.
+export function buildEvidence(verifiedStatus, components) {
+  return {
+    label: computeEvidenceLabel(verifiedStatus, components),
+    definition_version: EVIDENCE_LABELS_VERSION,
+    basis: EVIDENCE_LABEL_DISCLAIMER,
+    criteria_url: EVIDENCE_CRITERIA_URL,
+  };
+}
+
 // When an attester's status changes (today: deletion), every subject it
 // actively vouches for must be rescored so dead vouches stop counting.
 export async function recomputeDependentsOf(attesterAirId, db) {

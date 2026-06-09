@@ -6,7 +6,7 @@
 // wrangler.toml turns the .yaml import into a string at build time.
 import OPENAPI_YAML from "../openapi.yaml";
 import { base58Decode, base64urlToBytes, ed25519ToMultibase, documentContainsKey } from "./did-keys.mjs";
-import { calculateInitialTrustScore, computeVerifiedStatus, recomputeTrustScore, recomputeDependentsOf } from "./trust.mjs";
+import { calculateInitialTrustScore, computeVerifiedStatus, recomputeTrustScore, recomputeDependentsOf, computeEvidenceLabel, buildEvidence, EVIDENCE_LABEL_DISCLAIMER } from "./trust.mjs";
 
 export default {
   async fetch(request, env) {
@@ -71,7 +71,7 @@ export default {
         response = await revokeAttestation(request, parts[4], parts[6], env.DB);
       } else if (path.match(/^\/api\/v1\/agents\/AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\/badge\.svg$/) && method === "GET") {
         const airId = path.split("/")[4];
-        response = await getBadgeSvg(airId, env.DB);
+        response = await getBadgeSvg(airId, env.DB, url.searchParams.get("format"));
       } else if (path.match(/^\/api\/v1\/agents\/AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\/graph$/) && method === "GET") {
         const airId = path.split("/")[4];
         response = await getAgentGraph(airId, env.DB);
@@ -778,6 +778,11 @@ async function getAgent(airId, db) {
       security: agent.security,
       peer_attestations: agent.peer_attestations,
     },
+    evidence: buildEvidence(verifiedStatus, {
+      provenance: agent.provenance,
+      transparency: agent.transparency,
+      security: agent.security,
+    }),
   });
 }
 
@@ -927,6 +932,10 @@ async function getTrustScore(airId, db) {
     return json({ error: "Trust score not found", air_id: airId }, 404);
   }
 
+  // Label needs Verified status; getTrustScore otherwise reads only trust_scores.
+  // If this throws, let it propagate (→ 500) — never silently mislabel.
+  const verifiedStatus = await computeVerifiedStatus(airId, db);
+
   return json({
     air_id: airId,
     total_score: score.total_score,
@@ -939,6 +948,11 @@ async function getTrustScore(airId, db) {
       peer_attestations: score.peer_attestations,
     },
     calculated_at: score.calculated_at,
+    evidence: buildEvidence(verifiedStatus, {
+      provenance: score.provenance,
+      transparency: score.transparency,
+      security: score.security,
+    }),
   });
 }
 
@@ -1697,14 +1711,17 @@ async function revokeAttestation(request, subjectAirId, attestationIdRaw, db) {
 }
 
 // GET /api/v1/agents/{air_id}/badge.svg
-// Codecov-style SVG badge. Three tiers:
-//   - Verified (computeVerifiedStatus.verified): green
-//   - Has trust score: blue with score
-//   - Not found / no score: gray "unknown"
-// 60s cache (we want badges to reflect Verified-status changes quickly).
-async function getBadgeSvg(airId, db) {
+// SVG badge showing the agent's evidence label (default):
+//   - Verified  -> green "Verified ✓"
+//   - Attested  -> blue "Attested"
+//   - Self-declared / Registered -> gray (the label word)
+//   - agent not found -> gray "not found"
+// ?format=score returns the legacy numeric badge ("AIR Trust | <score>", blue;
+//   gray "no score" if none). The <title> carries the neutrality disclaimer.
+// 60s cache (so badges reflect label changes quickly).
+async function getBadgeSvg(airId, db, format) {
   const agent = await db.prepare(`
-    SELECT a.air_id, a.status, t.total_score
+    SELECT a.air_id, a.status, t.total_score, t.provenance, t.transparency, t.security
     FROM agents a LEFT JOIN trust_scores t ON a.air_id = t.air_id
     WHERE a.air_id = ?
   `).bind(airId).first();
@@ -1714,19 +1731,30 @@ async function getBadgeSvg(airId, db) {
     leftLabel = "AIR";
     rightLabel = "not found";
     rightColor = "#9f9f9f";
+  } else if (format === "score") {
+    // Legacy numeric badge (opt-in via ?format=score): always shows the raw
+    // score number, even for Verified agents. The default (no param) shows the
+    // evidence-label word. ?format=score is a new param, so no existing embedder
+    // relied on the old Verified->green default here.
+    leftLabel = "AIR Trust";
+    rightLabel = agent.total_score != null ? String(agent.total_score) : "no score";
+    rightColor = agent.total_score != null ? "#007ec6" : "#9f9f9f";
   } else {
     const status = await computeVerifiedStatus(airId, db);
-    if (status.verified) {
-      leftLabel = "AIR";
+    const label = computeEvidenceLabel(status, {
+      provenance: agent.provenance,
+      transparency: agent.transparency,
+      security: agent.security,
+    });
+    leftLabel = "AIR";
+    if (label === "Verified") {
       rightLabel = "Verified ✓";
       rightColor = "#4c1";
-    } else if (agent.total_score != null) {
-      leftLabel = "AIR Trust";
-      rightLabel = String(agent.total_score);
+    } else if (label === "Attested") {
+      rightLabel = "Attested";
       rightColor = "#007ec6";
     } else {
-      leftLabel = "AIR";
-      rightLabel = "no score";
+      rightLabel = label; // "Self-declared" | "Registered"
       rightColor = "#9f9f9f";
     }
   }
@@ -1742,7 +1770,7 @@ async function getBadgeSvg(airId, db) {
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="20" role="img" aria-label="${escape(leftLabel)}: ${escape(rightLabel)}">
-  <title>${escape(leftLabel)}: ${escape(rightLabel)}</title>
+  <title>${escape(leftLabel)}: ${escape(rightLabel)} — ${escape(EVIDENCE_LABEL_DISCLAIMER)}</title>
   <linearGradient id="s" x2="0" y2="100%">
     <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
     <stop offset="1" stop-opacity=".1"/>

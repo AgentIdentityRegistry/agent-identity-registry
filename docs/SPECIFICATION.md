@@ -282,6 +282,10 @@ The peer-attestation curve uses **frozen weights** (`attester_trust_at_issue × 
 
 Because `Behavioral` is a flat 500 and the other input components are capped well below 1000, a maximally-favourable agent today reaches a total of **645 (grade BBB)**. Grades **A / AA / AAA are reserved** for when behavioral telemetry and higher-confidence inputs ship. (Worked example: P=600, B=500, T=650, S=600, A=1000 → `0.25·600 + 0.25·500 + 0.20·650 + 0.15·600 + 0.15·1000 = 645`.)
 
+### Evidence Labels
+
+In addition to the numeric score and letter grade, every agent carries a factual **evidence label** — `Verified` / `Attested` / `Self-declared` / `Registered` — describing what independent evidence exists, never a verdict. It is the canonical human-facing classification; the numeric score + components are the transparent detail, and the legacy letter grade is retained for backward compatibility only. Full criteria + versioning: see `docs/TRUST-SCORE.md` → "Evidence Labels". Exposed in the `evidence` object on `GET /agents/{air_id}` and `/trust-score`, and on `badge.svg`.
+
 ### Trust grades
 
 | Score | Grade |
