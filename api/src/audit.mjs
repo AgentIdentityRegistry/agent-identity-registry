@@ -22,3 +22,40 @@ export async function auditEntryHash(content, prevHash) {
   ].join("\n");
   return sha256Hex(canonical + "\n" + prevHash);
 }
+
+export async function computeChainTip(db) {
+  const row = await db.prepare("SELECT entry_hash FROM agent_audit_log ORDER BY id DESC LIMIT 1").first();
+  const cnt = await db.prepare("SELECT COUNT(*) AS n FROM agent_audit_log").first();
+  return { tip_hash: row?.entry_hash ?? GENESIS, count: cnt?.n ?? 0 };
+}
+
+// Reads the current tip, computes this entry's hash, RETURNS the bound INSERT
+// statement (so the caller can run it inside the same db.batch() as the mutation).
+export async function recordAuditEvent(db, { airId, event, changedFields, actor, now }) {
+  const { tip_hash: prevHash } = await computeChainTip(db);
+  const content = { air_id: airId, event, changedFields, actor, created_at: now };
+  const entryHash = await auditEntryHash(content, prevHash);
+  return db.prepare(
+    `INSERT INTO agent_audit_log (air_id, event, changed_fields, actor, created_at, prev_hash, entry_hash)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).bind(airId, event, changedFields ? jcsCanonicalize([...changedFields].sort()) : null, actor, now, prevHash, entryHash);
+}
+
+// Bounded walk: recompute each hash + check linkage. Returns the integrity verdict.
+export async function verifyAuditChain(db, { fromId = 0, toId = null } = {}) {
+  const rows = (await db.prepare(
+    "SELECT * FROM agent_audit_log WHERE id > ? AND (? IS NULL OR id <= ?) ORDER BY id ASC"
+  ).bind(fromId, toId, toId).all()).results ?? [];
+  let prev = fromId === 0 ? GENESIS : (await db.prepare("SELECT entry_hash FROM agent_audit_log WHERE id = ?").bind(fromId).first())?.entry_hash;
+  for (const r of rows) {
+    const changedFields = r.changed_fields ? JSON.parse(r.changed_fields) : null;
+    const expect = await auditEntryHash(
+      { air_id: r.air_id, event: r.event, changedFields, actor: r.actor, created_at: r.created_at }, prev);
+    if (r.prev_hash !== prev || r.entry_hash !== expect) {
+      return { valid: false, first_broken_id: r.id, entries_checked: rows.indexOf(r), count: rows.length };
+    }
+    prev = r.entry_hash;
+  }
+  const tip = await computeChainTip(db);
+  return { valid: true, first_broken_id: null, entries_checked: rows.length, count: tip.count, tip_hash: tip.tip_hash };
+}

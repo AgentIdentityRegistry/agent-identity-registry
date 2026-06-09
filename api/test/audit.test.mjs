@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makeTestD1 } from "./helpers/d1.mjs";
-import { canonicalizeChangedFields, auditEntryHash, GENESIS } from "../src/audit.mjs";
+import { canonicalizeChangedFields, auditEntryHash, GENESIS, recordAuditEvent, computeChainTip, verifyAuditChain } from "../src/audit.mjs";
 
 test("0006: agent_audit_log table exists with UNIQUE(prev_hash)", async () => {
   const db = makeTestD1();
@@ -30,4 +30,31 @@ test("auditEntryHash: deterministic + genesis-aware + chains on prev_hash", asyn
   const h2 = await auditEntryHash(content, h1);
   assert.notEqual(h1, h2);
   assert.match(h1, /^[0-9a-f]{64}$/);
+});
+
+async function record(db, e) {
+  const stmt = await recordAuditEvent(db, e);
+  await stmt.run();
+}
+test("chain: record events → verify valid; tamper → first_broken_id", async () => {
+  const db = makeTestD1();
+  await record(db, { airId: "AIR-AAAA-AAAA-AAAA", event: "registered", changedFields: null, actor: "registrant", now: "2026-01-01T00:00:00Z" });
+  await record(db, { airId: "AIR-AAAA-AAAA-AAAA", event: "updated", changedFields: ["description"], actor: "owner", now: "2026-01-01T00:01:00Z" });
+  let v = await verifyAuditChain(db, {});
+  assert.equal(v.valid, true);
+  assert.equal(v.count, 2);
+  await db.prepare("UPDATE agent_audit_log SET actor='admin' WHERE id=1").bind().run();
+  v = await verifyAuditChain(db, {});
+  assert.equal(v.valid, false);
+  assert.equal(v.first_broken_id, 1);
+});
+test("chain: UNIQUE(prev_hash) blocks a fork", async () => {
+  const db = makeTestD1();
+  await record(db, { airId: "AIR-AAAA-AAAA-AAAA", event: "registered", changedFields: null, actor: "registrant", now: "2026-01-01T00:00:00Z" });
+  const tip = await computeChainTip(db);
+  assert.equal(tip.count, 1);
+  const a = await recordAuditEvent(db, { airId: "AIR-BBBB-BBBB-BBBB", event: "updated", changedFields: ["description"], actor: "owner", now: "t2" });
+  const b = await recordAuditEvent(db, { airId: "AIR-CCCC-CCCC-CCCC", event: "updated", changedFields: ["description"], actor: "owner", now: "t3" });
+  await a.run();
+  await assert.rejects(b.run());
 });
