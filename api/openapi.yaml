@@ -830,10 +830,11 @@ paths:
         and verify the linkage. This makes the log tamper-evident against
         accidental corruption and partial edits.
 
-        **Phase-A honest integrity claim** — operator-level tamper-evidence
-        (resistance to AIR itself rewriting or truncating history) is delivered
-        by a forthcoming weekly external anchor (Phase B, pending). Until that
-        ships, this log is NOT a trustless guarantee against the operator.
+        **Integrity claim** — tamper-evident against the operator back to the
+        last weekly anchor: the chain tip and entry count are published every
+        Sunday to the public [`AgentIdentityRegistry/audit-anchors`](https://github.com/AgentIdentityRegistry/audit-anchors)
+        repo. Integrity between weekly anchors is not real-time-guaranteed against
+        the operator.
       parameters:
         - name: limit
           in: query
@@ -885,6 +886,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /audit/anchor:
+    get:
+      summary: Latest external anchor from the public audit-anchors repo
+      operationId: getAuditAnchor
+      tags: [public]
+      description: |
+        Returns the latest anchor published to the public, append-only
+        [`AgentIdentityRegistry/audit-anchors`](https://github.com/AgentIdentityRegistry/audit-anchors)
+        repo (null until the first weekly publish). The anchor contains the
+        chain tip hash and entry count at the time of the Sunday publish,
+        signed by write-access to that repo.
+      responses:
+        "200":
+          description: Latest external anchor (null if none yet published or GitHub unreachable)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [anchor]
+                properties:
+                  anchor:
+                    allOf:
+                      - $ref: "#/components/schemas/AuditAnchor"
+                    nullable: true
+
   /audit/verify:
     get:
       summary: Bounded integrity check of the global audit chain
@@ -896,10 +922,9 @@ paths:
         the chain is intact, the first broken entry if not, and the tip hash
         of the checked range.
 
-        **Phase-A honest integrity claim** — this endpoint lets any third party
-        reproduce the hash linkage and detect accidental corruption or partial
-        edits. Operator-level tamper-evidence (resistance to AIR itself rewriting
-        history) requires the forthcoming weekly external anchor (Phase B, pending).
+        Recomputes the chain and cross-checks the live tip against the latest
+        external anchor (the public audit-anchors repo) — tamper-evident against
+        the operator back to the last weekly anchor.
       parameters:
         - name: from
           in: query
@@ -1931,6 +1956,21 @@ components:
             sha256hex([air_id, event, sortedJCS(changed_fields) or "", actor,
             created_at].join("\n") + "\n" + prev_hash). Reproducible by any third party.
 
+    AuditAnchor:
+      type: object
+      description: External anchor published weekly to the public audit-anchors repo.
+      required: [anchored_at, tip_hash, entry_count]
+      properties:
+        anchored_at:
+          type: string
+          description: ISO-8601 timestamp of when the anchor was published.
+        tip_hash:
+          type: string
+          description: sha256hex of the chain tip at anchor time.
+        entry_count:
+          type: integer
+          description: Total number of entries in the chain at anchor time.
+
     AuditVerifyResult:
       type: object
       description: Bounded integrity check of the global audit chain.
@@ -1947,3 +1987,27 @@ components:
           type: integer
         tip_hash:
           type: string
+        live_tip_hash:
+          type: string
+          description: sha256hex of the current live chain tip.
+        live_count:
+          type: integer
+          description: Total number of entries currently in the live chain.
+        last_anchor:
+          description: >
+            Cross-check against the latest external anchor; null if none published
+            or GitHub unreachable.
+          nullable: true
+          type: object
+          properties:
+            anchored_at:
+              type: string
+            tip_hash:
+              type: string
+            entry_count:
+              type: integer
+            matches:
+              type: boolean
+              description: >
+                True if live_tip_hash equals the anchor tip_hash AND live_count
+                is >= the anchor entry_count.

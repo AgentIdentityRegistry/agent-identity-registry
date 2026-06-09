@@ -527,9 +527,9 @@ sha256hex(
 | `GET /agents/{air_id}/history` | Paginated history for one agent |
 | `GET /audit/verify?from=&to=` | Bounded integrity check of the global audit chain |
 
-### Integrity claim (Phase A — honest interim statement)
+### Integrity claim
 
-Tamper-evident against accidental corruption and partial edits — anyone can re-derive every hash and check the `prev_hash` linkage. Operator-level tamper-evidence (resistance to AIR itself rewriting or truncating history) is delivered by a forthcoming weekly external anchor; until that ships, this log is **NOT a trustless guarantee against the operator**.
+Tamper-evident against accidental corruption and partial edits, **and against the operator itself back to the last weekly anchor**: every hash is reproducible by third parties (sorted-JCS `changed_fields`; `entry_hash = sha256(content + prev_hash)`; genesis = `"GENESIS"`), and the chain tip + entry count are published every Sunday to the public, append-only [`AgentIdentityRegistry/audit-anchors`](https://github.com/AgentIdentityRegistry/audit-anchors) repo. Anyone can cross-check the live chain against that external anchor via `GET /api/v1/audit/verify` (`last_anchor.matches`). Integrity between weekly anchors is not real-time-guaranteed against the operator.
 
 ### GDPR and erasure
 
