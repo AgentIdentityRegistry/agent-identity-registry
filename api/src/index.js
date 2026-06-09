@@ -89,6 +89,11 @@ export default {
       } else if (path.match(/^\/api\/v1\/agents\/AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\/dependents$/) && method === "GET") {
         const airId = path.split("/")[4];
         response = await getDependents(airId, url, env.DB);
+      } else if (path.match(/^\/api\/v1\/agents\/AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\/history$/) && method === "GET") {
+        const airId = path.split("/")[4];
+        response = await getAgentHistory(airId, url, env.DB);
+      } else if (path === "/api/v1/audit/verify" && method === "GET") {
+        response = await getAuditVerify(url, env.DB);
       } else if (path === "/api/v1/graph/stats" && method === "GET") {
         response = await getGraphStats(env.DB);
       } else if (path === "/api/v1/agents/register" && method === "POST") {
@@ -1320,6 +1325,46 @@ async function deleteAgent(airId, db) {
     deleted_at: now,
     message: "Agent deleted (soft delete). Data retained for audit purposes.",
   });
+}
+
+// ============================================================
+// AGENT-RECORD AUDIT LOG — public read endpoints (registry #5)
+// ============================================================
+//
+// GET /api/v1/agents/{air_id}/history — paginated, tamper-evident change log
+// for one agent. Returns the hash-linked entries (prev_hash + entry_hash) so a
+// third party can independently re-verify the chain.
+
+async function getAgentHistory(airId, url, db) {
+  const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 100);
+  const offset = parseInt(url.searchParams.get("offset") || "0");
+  const { results } = await db.prepare(
+    "SELECT id, event, changed_fields, actor, created_at, prev_hash, entry_hash FROM agent_audit_log WHERE air_id = ? ORDER BY id ASC LIMIT ? OFFSET ?"
+  ).bind(airId, limit, offset).all();
+  const countRow = await db.prepare("SELECT COUNT(*) AS n FROM agent_audit_log WHERE air_id = ?").bind(airId).first();
+  return json({
+    air_id: airId,
+    history: (results || []).map((r) => ({
+      id: r.id, event: r.event,
+      changed_fields: r.changed_fields ? JSON.parse(r.changed_fields) : null,
+      actor: r.actor, created_at: r.created_at, prev_hash: r.prev_hash, entry_hash: r.entry_hash,
+    })),
+    total: countRow?.n ?? 0,
+    limit, offset,
+    note: "Agent-record history tracked since 2026-06-09 (audit-log launch).",
+  });
+}
+
+// GET /api/v1/audit/verify?from=&to= — bounded integrity check of the global
+// audit chain. Recomputes each entry's hash and confirms the prev_hash linkage.
+// `from`/`to` keep the walk cheap on large logs.
+
+async function getAuditVerify(url, db) {
+  const fromId = parseInt(url.searchParams.get("from") || "0");
+  const toParam = url.searchParams.get("to");
+  const toId = toParam ? parseInt(toParam) : null;
+  const result = await verifyAuditChain(db, { fromId, toId });
+  return json(result);
 }
 
 // ============================================================
