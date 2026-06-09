@@ -8,7 +8,7 @@ import OPENAPI_YAML from "../openapi.yaml";
 import { base58Decode, base64urlToBytes, ed25519ToMultibase, documentContainsKey } from "./did-keys.mjs";
 import { calculateInitialTrustScore, computeVerifiedStatus, recomputeTrustScore, recomputeDependentsOf, computeEvidenceLabel, buildEvidence, EVIDENCE_LABEL_DISCLAIMER } from "./trust.mjs";
 import { sha256Hex, jcsCanonicalize } from "./crypto-utils.mjs";
-import { recordAuditEvent, verifyAuditChain } from "./audit.mjs";
+import { recordAuditEvent, verifyAuditChain, buildAnchor, publishAnchor, computeChainTip } from "./audit.mjs";
 
 // Detects a D1 UNIQUE/constraint violation on the audit chain's prev_hash —
 // two concurrent mutations racing to extend the same chain tip. Surfaced to
@@ -93,7 +93,10 @@ export default {
         const airId = path.split("/")[4];
         response = await getAgentHistory(airId, url, env.DB);
       } else if (path === "/api/v1/audit/verify" && method === "GET") {
-        response = await getAuditVerify(url, env.DB);
+        response = await getAuditVerify(url, env);
+      } else if (path === "/api/v1/audit/anchor" && method === "GET") {
+        const anchor = await fetchLatestAnchor(env); // best-effort, may be null
+        response = json({ anchor });
       } else if (path === "/api/v1/graph/stats" && method === "GET") {
         response = await getGraphStats(env.DB);
       } else if (path === "/api/v1/agents/register" && method === "POST") {
@@ -110,6 +113,19 @@ export default {
         //       since the cron only runs Sundays — without this you'd wait days.
         //   (b) Verifying the cron handler actually works without waiting.
         response = await adminAuth(request, env) || await runDidWbaResolveCron(env.DB);
+      } else if (path === "/api/v1/admin/cron/publish-anchor" && method === "POST") {
+        // Manual trigger for the weekly external anchor publish — backfill the
+        // first anchor or verify the GitHub adapter without waiting for Sunday.
+        response = await adminAuth(request, env);
+        if (!response) {
+          try {
+            const anchor = await buildAnchor(env.DB, new Date().toISOString());
+            const result = await publishAnchor(anchor, { putFile: githubPutFile(env) });
+            response = json({ published: anchor, result });
+          } catch (e) {
+            response = json({ error: (e && e.message) || String(e) }, 500);
+          }
+        }
       } else if (path === "/api/v1/health" && method === "GET") {
         response = json({ status: "ok", version: "0.1.0", registry: "AIR" });
       } else if (path === "/api/v1/openapi.yaml" && method === "GET") {
@@ -153,6 +169,19 @@ export default {
         // Surface in `wrangler tail` logs without crashing the invocation.
         console.error("[did-wba-cron] FAILED:", err && err.stack || err);
       })
+    );
+    // Publish the weekly external audit anchor to the public audit-anchors repo
+    // so chain integrity is verifiable without trusting AIR's own DB. Isolated
+    // from the did-wba step: a GitHub failure must not affect re-resolution.
+    ctx.waitUntil(
+      (async () => {
+        try {
+          const anchor = await buildAnchor(env.DB, new Date().toISOString());
+          await publishAnchor(anchor, { putFile: githubPutFile(env) });
+        } catch (e) {
+          console.error("[audit-anchor-cron] FAILED:", (e && e.stack) || e);
+        }
+      })()
     );
   },
 };
@@ -203,6 +232,64 @@ function json(data, status = 200, extraHeaders = {}) {
     status,
     headers: { "Content-Type": "application/json", ...extraHeaders },
   });
+}
+
+// ---- External anchor: GitHub adapters (Phase B) --------------------------
+// audit.mjs stays network-free; the real GitHub I/O lives here and is injected
+// into publishAnchor via { putFile }. Repo AgentIdentityRegistry/audit-anchors
+// is PUBLIC, so reads work without auth (token, if present, just lifts the
+// rate limit). GitHub requires a User-Agent header on every request.
+const ANCHOR_REPO = "AgentIdentityRegistry/audit-anchors";
+
+// Returns a putFile({ path, content, message }) sink that commits to the public
+// anchors repo. GETs first to recover any existing file's sha so re-publishing
+// the same dated path updates (instead of 422-ing). Throws on a failed PUT so
+// the caller's try/catch logs it.
+function githubPutFile(env) {
+  return async ({ path, content, message }) => {
+    const apiUrl = `https://api.github.com/repos/${ANCHOR_REPO}/contents/${path}`;
+    const headers = {
+      "Authorization": `Bearer ${env.AUDIT_ANCHOR_TOKEN}`,
+      "Accept": "application/vnd.github+json",
+      "User-Agent": "air-registry",
+      "X-GitHub-Api-Version": "2022-11-28",
+    };
+    // Recover existing sha (200) or treat as new file (404).
+    let sha;
+    const head = await fetch(apiUrl, { headers });
+    if (head.ok) sha = (await head.json()).sha;
+    const res = await fetch(apiUrl, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({ message, content: btoa(content), ...(sha ? { sha } : {}) }),
+    });
+    if (!res.ok) {
+      const error = (await res.text()).slice(0, 500);
+      throw new Error(`github putFile ${res.status}: ${error}`);
+    }
+    return { ok: res.ok, status: res.status };
+  };
+}
+
+// Best-effort fetch of the most recent published anchor (or null). Never throws:
+// read endpoints must not break when GitHub is unreachable or rate-limited.
+// Dated YYYY-MM-DD.json filenames sort lexicographically, so the max name wins.
+async function fetchLatestAnchor(env) {
+  try {
+    const headers = { "User-Agent": "air-registry" };
+    if (env.AUDIT_ANCHOR_TOKEN) headers["Authorization"] = `Bearer ${env.AUDIT_ANCHOR_TOKEN}`;
+    const listUrl = `https://api.github.com/repos/${ANCHOR_REPO}/contents/anchors`;
+    const res = await fetch(listUrl, { headers });
+    if (!res.ok) return null; // 404 = no anchors yet
+    const entries = await res.json();
+    if (!Array.isArray(entries) || entries.length === 0) return null;
+    const latest = entries.reduce((a, b) => (b.name > a.name ? b : a));
+    const raw = await fetch(latest.download_url, { headers: { "User-Agent": "air-registry" } });
+    if (!raw.ok) return null;
+    return JSON.parse(await raw.text());
+  } catch {
+    return null;
+  }
 }
 
 // ============================================================
@@ -1359,12 +1446,23 @@ async function getAgentHistory(airId, url, db) {
 // audit chain. Recomputes each entry's hash and confirms the prev_hash linkage.
 // `from`/`to` keep the walk cheap on large logs.
 
-async function getAuditVerify(url, db) {
+async function getAuditVerify(url, env) {
   const fromId = parseInt(url.searchParams.get("from") || "0");
   const toParam = url.searchParams.get("to");
   const toId = toParam ? parseInt(toParam) : null;
-  const result = await verifyAuditChain(db, { fromId, toId });
-  return json(result);
+  const result = await verifyAuditChain(env.DB, { fromId, toId });
+  // Cross-check the live tip against the latest external anchor. Best-effort:
+  // last_anchor is null when no anchor is published or GitHub is unreachable,
+  // so the integrity verdict never depends on a third party being available.
+  const tip = await computeChainTip(env.DB);
+  const anchor = await fetchLatestAnchor(env); // best-effort, may be null
+  const last_anchor = anchor ? {
+    anchored_at: anchor.anchored_at,
+    tip_hash: anchor.tip_hash,
+    entry_count: anchor.entry_count,
+    matches: tip.tip_hash === anchor.tip_hash && tip.count >= anchor.entry_count,
+  } : null;
+  return json({ ...result, live_tip_hash: tip.tip_hash, live_count: tip.count, last_anchor });
 }
 
 // ============================================================
