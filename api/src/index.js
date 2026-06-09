@@ -937,6 +937,10 @@ async function getTrustScore(airId, db) {
     return json({ error: "Trust score not found", air_id: airId }, 404);
   }
 
+  // Label needs Verified status; getTrustScore otherwise reads only trust_scores.
+  // If this throws, let it propagate (→ 500) — never silently mislabel.
+  const verifiedStatus = await computeVerifiedStatus(airId, db);
+
   return json({
     air_id: airId,
     total_score: score.total_score,
@@ -949,6 +953,16 @@ async function getTrustScore(airId, db) {
       peer_attestations: score.peer_attestations,
     },
     calculated_at: score.calculated_at,
+    evidence: {
+      label: computeEvidenceLabel(verifiedStatus, {
+        provenance: score.provenance,
+        transparency: score.transparency,
+        security: score.security,
+      }),
+      definition_version: EVIDENCE_LABELS_VERSION,
+      basis: EVIDENCE_LABEL_DISCLAIMER,
+      criteria_url: EVIDENCE_CRITERIA_URL,
+    },
   });
 }
 
