@@ -8,6 +8,16 @@ import OPENAPI_YAML from "../openapi.yaml";
 import { base58Decode, base64urlToBytes, ed25519ToMultibase, documentContainsKey } from "./did-keys.mjs";
 import { calculateInitialTrustScore, computeVerifiedStatus, recomputeTrustScore, recomputeDependentsOf, computeEvidenceLabel, buildEvidence, EVIDENCE_LABEL_DISCLAIMER } from "./trust.mjs";
 import { sha256Hex, jcsCanonicalize } from "./crypto-utils.mjs";
+import { recordAuditEvent, verifyAuditChain, computeChainTip } from "./audit.mjs";
+
+// Detects a D1 UNIQUE/constraint violation on the audit chain's prev_hash —
+// two concurrent mutations racing to extend the same chain tip. Surfaced to
+// the caller as a 409 "retry" rather than a 500. D1 errors carry the SQLite
+// message text (e.g. "UNIQUE constraint failed: agent_audit_log.prev_hash").
+function isAuditChainContention(err) {
+  const msg = String((err && (err.message || err.cause?.message)) || err || "");
+  return /constraint failed/i.test(msg) && /prev_hash|agent_audit_log|UNIQUE/i.test(msg);
+}
 
 export default {
   async fetch(request, env) {
@@ -1075,10 +1085,10 @@ async function registerAgent(request, db) {
   // unless we actually checked. The weekly cron refreshes both for did:wba rows.
   const didWbaResolvedCol = isDidWba(creatorDid) ? (didWbaResolved ? 1 : 0) : null;
   const didWbaCheckedAtCol = isDidWba(creatorDid) ? now : null;
-  await db.prepare(
+  const insertAgentStmt = db.prepare(
     `INSERT INTO agents (air_id, name, description, creator_did, creator_name, creator_type, capabilities, security_certifications, transparency_open_source, transparency_code_repo, transparency_docs_url, verification_level, verified, status, created_at, updated_at, public_key, agent_secret_hash, did_wba_resolved, did_wba_last_checked_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'self-verified', 0, 'active', ?, ?, ?, ?, ?, ?)`
-  ).bind(airId, name, description, creatorDid, creatorName, creatorType, capabilities, securityCerts, openSource, codeRepo, docsUrl, now, now, publicKey, agentSecretHash, didWbaResolvedCol, didWbaCheckedAtCol).run();
+  ).bind(airId, name, description, creatorDid, creatorName, creatorType, capabilities, securityCerts, openSource, codeRepo, docsUrl, now, now, publicKey, agentSecretHash, didWbaResolvedCol, didWbaCheckedAtCol);
 
   // Calculate and insert trust score
   const agentRow = {
@@ -1092,10 +1102,23 @@ async function registerAgent(request, db) {
   };
   const score = calculateInitialTrustScore(agentRow);
 
-  await db.prepare(
+  const insertTrustStmt = db.prepare(
     `INSERT INTO trust_scores (air_id, total_score, grade, provenance, behavioral, transparency, security, peer_attestations, calculated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).bind(airId, score.total_score, score.grade, score.provenance, score.behavioral, score.transparency, score.security, score.peer_attestations, now).run();
+  ).bind(airId, score.total_score, score.grade, score.provenance, score.behavioral, score.transparency, score.security, score.peer_attestations, now);
+
+  // Record the "registered" audit event and commit it in ONE atomic batch with
+  // the agent + trust-score inserts. audit-or-fail: if the audit insert can't be
+  // written (UNIQUE(prev_hash) contention), the whole registration rolls back.
+  const auditStmt = await recordAuditEvent(db, { airId, event: "registered", changedFields: null, actor: "registrant", now });
+  try {
+    await db.batch([insertAgentStmt, insertTrustStmt, auditStmt]);
+  } catch (err) {
+    if (isAuditChainContention(err)) {
+      return json({ error: "audit chain contention, please retry", air_id: airId }, 409);
+    }
+    throw err;
+  }
 
   const warnings = [];
   if (duplicateNameCount > 0) {
@@ -1157,30 +1180,39 @@ async function updateAgent(request, airId, db) {
   // Only allow updating specific fields
   const updates = [];
   const binds = [];
+  // Public-facing names of the fields the caller actually changed — recorded in
+  // the audit log so history shows WHAT changed (not the internal column names).
+  const changedFields = [];
 
   if (body.description !== undefined) {
     updates.push("description = ?");
     binds.push(String(body.description).trim().slice(0, 2000));
+    changedFields.push("description");
   }
   if (body.capabilities !== undefined && Array.isArray(body.capabilities)) {
     updates.push("capabilities = ?");
     binds.push(JSON.stringify(body.capabilities.slice(0, 20)));
+    changedFields.push("capabilities");
   }
   if (body.security_certifications !== undefined && Array.isArray(body.security_certifications)) {
     updates.push("security_certifications = ?");
     binds.push(JSON.stringify(body.security_certifications.slice(0, 10)));
+    changedFields.push("security_certifications");
   }
   if (body.open_source !== undefined) {
     updates.push("transparency_open_source = ?");
     binds.push(body.open_source ? 1 : 0);
+    changedFields.push("open_source");
   }
   if (body.code_repository !== undefined) {
     updates.push("transparency_code_repo = ?");
     binds.push(String(body.code_repository).trim().slice(0, 500));
+    changedFields.push("code_repository");
   }
   if (body.documentation_url !== undefined) {
     updates.push("transparency_docs_url = ?");
     binds.push(String(body.documentation_url).trim().slice(0, 500));
+    changedFields.push("documentation_url");
   }
   // service_endpoints — W3C did-core service[] entries appended to the DID document.
   // Phase 3 Stage 3.0.1a. Strict validation: array of objects each with string `type`
@@ -1192,6 +1224,7 @@ async function updateAgent(request, airId, db) {
     }
     updates.push("service_endpoints = ?");
     binds.push(result.normalized.length === 0 ? null : JSON.stringify(result.normalized));
+    changedFields.push("service_endpoints");
   }
 
   if (updates.length === 0) {
@@ -1203,9 +1236,22 @@ async function updateAgent(request, airId, db) {
   binds.push(now);
   binds.push(airId);
 
-  await db.prepare(
+  const updateStmt = db.prepare(
     "UPDATE agents SET " + updates.join(", ") + " WHERE air_id = ?"
-  ).bind(...binds).run();
+  ).bind(...binds);
+
+  // Record the "updated" audit event and commit it in ONE atomic batch with the
+  // UPDATE. audit-or-fail: if the audit insert can't be written (UNIQUE(prev_hash)
+  // contention), the field update rolls back too.
+  const auditStmt = await recordAuditEvent(db, { airId, event: "updated", changedFields, actor: "owner", now });
+  try {
+    await db.batch([updateStmt, auditStmt]);
+  } catch (err) {
+    if (isAuditChainContention(err)) {
+      return json({ error: "audit chain contention, please retry", air_id: airId }, 409);
+    }
+    throw err;
+  }
 
   // Recalculate trust score with updated data. Routes through recomputeTrustScore
   // so an agent edit preserves earned trust instead of wiping peer back to 300 (#3).
@@ -1242,9 +1288,22 @@ async function deleteAgent(airId, db) {
 
   // Soft delete — set status to 'deleted' rather than removing the row
   const now = new Date().toISOString();
-  await db.prepare(
+  const deleteStmt = db.prepare(
     "UPDATE agents SET status = 'deleted', updated_at = ? WHERE air_id = ?"
-  ).bind(now, airId).run();
+  ).bind(now, airId);
+
+  // Record the "deleted" audit event and commit it in ONE atomic batch with the
+  // soft-delete UPDATE. audit-or-fail: if the audit insert can't be written
+  // (UNIQUE(prev_hash) contention), the soft-delete rolls back too.
+  const auditStmt = await recordAuditEvent(db, { airId, event: "deleted", changedFields: null, actor: "admin", now });
+  try {
+    await db.batch([deleteStmt, auditStmt]);
+  } catch (err) {
+    if (isAuditChainContention(err)) {
+      return json({ error: "audit chain contention, please retry", air_id: airId }, 409);
+    }
+    throw err;
+  }
 
   // Dead-vouch filter (#3): this agent's vouches no longer count — rescore everyone
   // it vouched for so their trust + Verified drop immediately.
