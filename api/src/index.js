@@ -7,6 +7,7 @@
 import OPENAPI_YAML from "../openapi.yaml";
 import { base58Decode, base64urlToBytes, ed25519ToMultibase, documentContainsKey } from "./did-keys.mjs";
 import { calculateInitialTrustScore, computeVerifiedStatus, recomputeTrustScore, recomputeDependentsOf, computeEvidenceLabel, buildEvidence, EVIDENCE_LABEL_DISCLAIMER } from "./trust.mjs";
+import { sha256Hex, jcsCanonicalize } from "./crypto-utils.mjs";
 
 export default {
   async fetch(request, env) {
@@ -455,13 +456,6 @@ function generateAgentSecret() {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-// SHA-256 hash of a UTF-8 string, returned as 64-char hex.
-// Used to store agent_secret_hash without retaining the plaintext.
-async function sha256Hex(text) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
-}
-
 // Constant-time string equality (timing-safe). Returns true if and only if
 // both strings have identical length and contents. Iterates the full length
 // regardless of mismatch position, preventing timing-side-channel attacks
@@ -519,30 +513,6 @@ function validatePublicKey(key) {
 //   verified = (sum(weight) >= 300) AND (count(distinct whois_root) >= 3)
 //
 // See [[air/strategic-borrowings-from-opena2a-2026-05-28]] for design rationale.
-
-// Canonical JSON per RFC 8785 (JCS). Matches the A2A draft-1 _jcs_exact()
-// pattern in the conformance harness — no float coercion, exact integers.
-// Used so Rust/Python/Go implementations can byte-match our signed payloads.
-function jcsCanonicalize(obj) {
-  if (obj === null) return "null";
-  if (typeof obj === "boolean") return obj ? "true" : "false";
-  if (typeof obj === "number") {
-    if (!Number.isFinite(obj)) throw new Error("non-finite number in JCS payload");
-    if (!Number.isInteger(obj) && Math.abs(obj) > Number.MAX_SAFE_INTEGER) {
-      throw new Error("large float canonicalization not implemented");
-    }
-    return JSON.stringify(obj);
-  }
-  if (typeof obj === "string") return JSON.stringify(obj);
-  if (Array.isArray(obj)) {
-    return "[" + obj.map(jcsCanonicalize).join(",") + "]";
-  }
-  if (typeof obj === "object") {
-    const keys = Object.keys(obj).sort();
-    return "{" + keys.map(k => JSON.stringify(k) + ":" + jcsCanonicalize(obj[k])).join(",") + "}";
-  }
-  throw new Error("unsupported JCS type: " + typeof obj);
-}
 
 // Verify an Ed25519 signature in multibase encoding.
 //   publicKeyBase64url — 43-44 char base64url (Ed25519 32-byte raw key)
