@@ -880,6 +880,32 @@ components:
           maximum: 1000
           description: Endorsements from other registered agents. Currently a flat 300 baseline.
 
+    EvidenceLabel:
+      type: object
+      description: >
+        Factual classification of WHAT evidence exists for an agent — never a verdict
+        or endorsement. Definitions are versioned (see docs/TRUST-SCORE.md "Evidence Labels").
+      properties:
+        label:
+          type: string
+          enum: [Verified, Attested, Self-declared, Registered]
+          description: >
+            Verified = >=3 independent attesters across >=3 WHOIS roots;
+            Attested = some independent attestation, below the Verified bar;
+            Self-declared = score from self-reported data, no independent check;
+            Registered = anonymous baseline, no enrichment, no attestations.
+        definition_version:
+          type: string
+          description: Version of the published label criteria these results were computed under.
+          examples: ["2026-06-09"]
+        basis:
+          type: string
+          description: Standard disclaimer — mechanically derived, not an endorsement.
+        criteria_url:
+          type: string
+          format: uri
+      required: [label, definition_version, basis, criteria_url]
+
     TrustScore:
       type: object
       required: [air_id, total_score, grade, components, calculated_at]
@@ -900,6 +926,8 @@ components:
         calculated_at:
           type: string
           format: date-time
+        evidence:
+          $ref: "#/components/schemas/EvidenceLabel"
 
     # ---------- AGENT RECORDS ----------
 
@@ -1006,6 +1034,8 @@ components:
             - type: "null"
         verification_status:
           $ref: "#/components/schemas/VerificationStatus"
+        evidence:
+          $ref: "#/components/schemas/EvidenceLabel"
 
     AgentSummary:
       type: object
