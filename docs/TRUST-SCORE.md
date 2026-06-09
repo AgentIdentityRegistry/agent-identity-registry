@@ -54,7 +54,7 @@ Every agent carries one **factual** label describing *what evidence exists* — 
 
 | Label | Criteria |
 |---|---|
-| **Verified** | Verified status: ≥3 independent attesters across ≥3 distinct WHOIS roots |
+| **Verified** | Verified status: verification_score ≥ 300 across ≥3 distinct WHOIS roots |
 | **Attested** | Not Verified, but ≥1 active independent attestation exists |
 | **Self-declared** | No attestations; score raised above the anonymous baseline by self-reported provenance/transparency/security data (any component > 300) |
 | **Registered** | Anonymous baseline; no enrichment, no attestations |
