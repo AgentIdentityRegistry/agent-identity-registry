@@ -808,6 +808,146 @@ paths:
               schema:
                 $ref: "#/components/schemas/GraphStats"
 
+  # ----------------------------------------------------------------
+  # AUDIT LOG ENDPOINTS
+  # ----------------------------------------------------------------
+
+  /agents/{air_id}/history:
+    parameters:
+      - $ref: "#/components/parameters/AirId"
+    get:
+      summary: Agent-record change history (audit log)
+      operationId: getAgentHistory
+      tags: [public]
+      description: |
+        Returns the paginated, append-only, hash-linked audit log for a single
+        agent — every `registered`, `updated`, `deleted`, and `redacted` event
+        since audit-log launch (2026-06-09). Pre-existing agents have no
+        `registered` entry.
+
+        **Entry integrity** — each entry carries a `prev_hash` → `entry_hash`
+        chain. Anyone can re-derive `entry_hash` from the published hash recipe
+        and verify the linkage. This makes the log tamper-evident against
+        accidental corruption and partial edits.
+
+        **Integrity claim** — tamper-evident against the operator back to the
+        last weekly anchor: the chain tip and entry count are published every
+        Sunday to the public [`AgentIdentityRegistry/audit-anchors`](https://github.com/AgentIdentityRegistry/audit-anchors)
+        repo. Integrity between weekly anchors is not real-time-guaranteed against
+        the operator.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Max entries to return (1-100). Defaults to 50.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          required: false
+          description: Pagination offset (0-based).
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Paginated audit history for this agent
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [air_id, history, total, limit, offset]
+                properties:
+                  air_id:
+                    type: string
+                    pattern: ^AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$
+                  history:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditEntry"
+                  total:
+                    type: integer
+                    minimum: 0
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  note:
+                    type: string
+                    description: Optional informational message (e.g. backfill warning for pre-launch agents).
+        "404":
+          description: No agent with that AIR ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /audit/anchor:
+    get:
+      summary: Latest external anchor from the public audit-anchors repo
+      operationId: getAuditAnchor
+      tags: [public]
+      description: |
+        Returns the latest anchor published to the public, append-only
+        [`AgentIdentityRegistry/audit-anchors`](https://github.com/AgentIdentityRegistry/audit-anchors)
+        repo (null until the first weekly publish). The anchor contains the
+        chain tip hash and entry count at the time of the Sunday publish,
+        signed by write-access to that repo.
+      responses:
+        "200":
+          description: Latest external anchor (null if none yet published or GitHub unreachable)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [anchor]
+                properties:
+                  anchor:
+                    allOf:
+                      - $ref: "#/components/schemas/AuditAnchor"
+                    nullable: true
+
+  /audit/verify:
+    get:
+      summary: Bounded integrity check of the global audit chain
+      operationId: verifyAuditChain
+      tags: [public]
+      description: |
+        Re-derives and verifies every `entry_hash` in the global audit chain
+        between `from` and `to` (inclusive, by chain `id`). Returns whether
+        the chain is intact, the first broken entry if not, and the tip hash
+        of the checked range.
+
+        Recomputes the chain and cross-checks the live tip against the latest
+        external anchor (the public audit-anchors repo) — tamper-evident against
+        the operator back to the last weekly anchor.
+      parameters:
+        - name: from
+          in: query
+          required: false
+          description: First chain `id` to check (inclusive). Defaults to 1.
+          schema:
+            type: integer
+            minimum: 1
+        - name: to
+          in: query
+          required: false
+          description: Last chain `id` to check (inclusive). Defaults to the current tip.
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Chain integrity result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditVerifyResult"
+
 components:
 
   parameters:
@@ -1781,3 +1921,93 @@ components:
             properties:
               air_id: { type: string }
               count: { type: integer }
+
+    # ---------- AUDIT LOG ----------
+
+    AuditEntry:
+      type: object
+      description: One append-only, hash-linked agent-record change event.
+      required: [id, event, actor, created_at, prev_hash, entry_hash]
+      properties:
+        id:
+          type: integer
+          description: Chain order (not part of the hash).
+        event:
+          type: string
+          enum: [registered, updated, deleted, redacted]
+        changed_fields:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: Public field names changed (null for register/delete/redact).
+        actor:
+          type: string
+          enum: [registrant, owner, admin, system]
+        created_at:
+          type: string
+          description: Worker-generated ISO 8601 (never client-supplied).
+        prev_hash:
+          type: string
+          description: Previous entry's entry_hash; the literal "GENESIS" for the first.
+        entry_hash:
+          type: string
+          description: >
+            sha256hex([air_id, event, sortedJCS(changed_fields) or "", actor,
+            created_at].join("\n") + "\n" + prev_hash). Reproducible by any third party.
+
+    AuditAnchor:
+      type: object
+      description: External anchor published weekly to the public audit-anchors repo.
+      required: [anchored_at, tip_hash, entry_count]
+      properties:
+        anchored_at:
+          type: string
+          description: ISO-8601 timestamp of when the anchor was published.
+        tip_hash:
+          type: string
+          description: sha256hex of the chain tip at anchor time.
+        entry_count:
+          type: integer
+          description: Total number of entries in the chain at anchor time.
+
+    AuditVerifyResult:
+      type: object
+      description: Bounded integrity check of the global audit chain.
+      required: [valid, entries_checked]
+      properties:
+        valid:
+          type: boolean
+        first_broken_id:
+          type: integer
+          nullable: true
+        entries_checked:
+          type: integer
+        count:
+          type: integer
+        tip_hash:
+          type: string
+        live_tip_hash:
+          type: string
+          description: sha256hex of the current live chain tip.
+        live_count:
+          type: integer
+          description: Total number of entries currently in the live chain.
+        last_anchor:
+          description: >
+            Cross-check against the latest external anchor; null if none published
+            or GitHub unreachable.
+          nullable: true
+          type: object
+          properties:
+            anchored_at:
+              type: string
+            tip_hash:
+              type: string
+            entry_count:
+              type: integer
+            matches:
+              type: boolean
+              description: >
+                True if live_tip_hash equals the anchor tip_hash AND live_count
+                is >= the anchor entry_count.

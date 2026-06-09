@@ -7,6 +7,17 @@
 import OPENAPI_YAML from "../openapi.yaml";
 import { base58Decode, base64urlToBytes, ed25519ToMultibase, documentContainsKey } from "./did-keys.mjs";
 import { calculateInitialTrustScore, computeVerifiedStatus, recomputeTrustScore, recomputeDependentsOf, computeEvidenceLabel, buildEvidence, EVIDENCE_LABEL_DISCLAIMER } from "./trust.mjs";
+import { sha256Hex, jcsCanonicalize } from "./crypto-utils.mjs";
+import { recordAuditEvent, verifyAuditChain, buildAnchor, publishAnchor, computeChainTip } from "./audit.mjs";
+
+// Detects a D1 UNIQUE/constraint violation on the audit chain's prev_hash —
+// two concurrent mutations racing to extend the same chain tip. Surfaced to
+// the caller as a 409 "retry" rather than a 500. D1 errors carry the SQLite
+// message text (e.g. "UNIQUE constraint failed: agent_audit_log.prev_hash").
+function isAuditChainContention(err) {
+  const msg = String((err && (err.message || err.cause?.message)) || err || "");
+  return /constraint failed/i.test(msg) && /prev_hash|agent_audit_log|UNIQUE/i.test(msg);
+}
 
 export default {
   async fetch(request, env) {
@@ -78,6 +89,14 @@ export default {
       } else if (path.match(/^\/api\/v1\/agents\/AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\/dependents$/) && method === "GET") {
         const airId = path.split("/")[4];
         response = await getDependents(airId, url, env.DB);
+      } else if (path.match(/^\/api\/v1\/agents\/AIR-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\/history$/) && method === "GET") {
+        const airId = path.split("/")[4];
+        response = await getAgentHistory(airId, url, env.DB);
+      } else if (path === "/api/v1/audit/verify" && method === "GET") {
+        response = await getAuditVerify(url, env);
+      } else if (path === "/api/v1/audit/anchor" && method === "GET") {
+        const anchor = await fetchLatestAnchor(env); // best-effort, may be null
+        response = json({ anchor });
       } else if (path === "/api/v1/graph/stats" && method === "GET") {
         response = await getGraphStats(env.DB);
       } else if (path === "/api/v1/agents/register" && method === "POST") {
@@ -94,6 +113,19 @@ export default {
         //       since the cron only runs Sundays — without this you'd wait days.
         //   (b) Verifying the cron handler actually works without waiting.
         response = await adminAuth(request, env) || await runDidWbaResolveCron(env.DB);
+      } else if (path === "/api/v1/admin/cron/publish-anchor" && method === "POST") {
+        // Manual trigger for the weekly external anchor publish — backfill the
+        // first anchor or verify the GitHub adapter without waiting for Sunday.
+        response = await adminAuth(request, env);
+        if (!response) {
+          try {
+            const anchor = await buildAnchor(env.DB, new Date().toISOString());
+            const result = await publishAnchor(anchor, { putFile: githubPutFile(env) });
+            response = json({ published: anchor, result });
+          } catch (e) {
+            response = json({ error: (e && e.message) || String(e) }, 500);
+          }
+        }
       } else if (path === "/api/v1/health" && method === "GET") {
         response = json({ status: "ok", version: "0.1.0", registry: "AIR" });
       } else if (path === "/api/v1/openapi.yaml" && method === "GET") {
@@ -137,6 +169,19 @@ export default {
         // Surface in `wrangler tail` logs without crashing the invocation.
         console.error("[did-wba-cron] FAILED:", err && err.stack || err);
       })
+    );
+    // Publish the weekly external audit anchor to the public audit-anchors repo
+    // so chain integrity is verifiable without trusting AIR's own DB. Isolated
+    // from the did-wba step: a GitHub failure must not affect re-resolution.
+    ctx.waitUntil(
+      (async () => {
+        try {
+          const anchor = await buildAnchor(env.DB, new Date().toISOString());
+          await publishAnchor(anchor, { putFile: githubPutFile(env) });
+        } catch (e) {
+          console.error("[audit-anchor-cron] FAILED:", (e && e.stack) || e);
+        }
+      })()
     );
   },
 };
@@ -187,6 +232,64 @@ function json(data, status = 200, extraHeaders = {}) {
     status,
     headers: { "Content-Type": "application/json", ...extraHeaders },
   });
+}
+
+// ---- External anchor: GitHub adapters (Phase B) --------------------------
+// audit.mjs stays network-free; the real GitHub I/O lives here and is injected
+// into publishAnchor via { putFile }. Repo AgentIdentityRegistry/audit-anchors
+// is PUBLIC, so reads work without auth (token, if present, just lifts the
+// rate limit). GitHub requires a User-Agent header on every request.
+const ANCHOR_REPO = "AgentIdentityRegistry/audit-anchors";
+
+// Returns a putFile({ path, content, message }) sink that commits to the public
+// anchors repo. GETs first to recover any existing file's sha so re-publishing
+// the same dated path updates (instead of 422-ing). Throws on a failed PUT so
+// the caller's try/catch logs it.
+function githubPutFile(env) {
+  return async ({ path, content, message }) => {
+    const apiUrl = `https://api.github.com/repos/${ANCHOR_REPO}/contents/${path}`;
+    const headers = {
+      "Authorization": `Bearer ${env.AUDIT_ANCHOR_TOKEN}`,
+      "Accept": "application/vnd.github+json",
+      "User-Agent": "air-registry",
+      "X-GitHub-Api-Version": "2022-11-28",
+    };
+    // Recover existing sha (200) or treat as new file (404).
+    let sha;
+    const head = await fetch(apiUrl, { headers });
+    if (head.ok) sha = (await head.json()).sha;
+    const res = await fetch(apiUrl, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({ message, content: btoa(content), ...(sha ? { sha } : {}) }),
+    });
+    if (!res.ok) {
+      const error = (await res.text()).slice(0, 500);
+      throw new Error(`github putFile ${res.status}: ${error}`);
+    }
+    return { ok: res.ok, status: res.status };
+  };
+}
+
+// Best-effort fetch of the most recent published anchor (or null). Never throws:
+// read endpoints must not break when GitHub is unreachable or rate-limited.
+// Dated YYYY-MM-DD.json filenames sort lexicographically, so the max name wins.
+async function fetchLatestAnchor(env) {
+  try {
+    const headers = { "User-Agent": "air-registry" };
+    if (env.AUDIT_ANCHOR_TOKEN) headers["Authorization"] = `Bearer ${env.AUDIT_ANCHOR_TOKEN}`;
+    const listUrl = `https://api.github.com/repos/${ANCHOR_REPO}/contents/anchors`;
+    const res = await fetch(listUrl, { headers });
+    if (!res.ok) return null; // 404 = no anchors yet
+    const entries = await res.json();
+    if (!Array.isArray(entries) || entries.length === 0) return null;
+    const latest = entries.reduce((a, b) => (b.name > a.name ? b : a));
+    const raw = await fetch(latest.download_url, { headers: { "User-Agent": "air-registry" } });
+    if (!raw.ok) return null;
+    return JSON.parse(await raw.text());
+  } catch {
+    return null;
+  }
 }
 
 // ============================================================
@@ -455,13 +558,6 @@ function generateAgentSecret() {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-// SHA-256 hash of a UTF-8 string, returned as 64-char hex.
-// Used to store agent_secret_hash without retaining the plaintext.
-async function sha256Hex(text) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
-}
-
 // Constant-time string equality (timing-safe). Returns true if and only if
 // both strings have identical length and contents. Iterates the full length
 // regardless of mismatch position, preventing timing-side-channel attacks
@@ -519,30 +615,6 @@ function validatePublicKey(key) {
 //   verified = (sum(weight) >= 300) AND (count(distinct whois_root) >= 3)
 //
 // See [[air/strategic-borrowings-from-opena2a-2026-05-28]] for design rationale.
-
-// Canonical JSON per RFC 8785 (JCS). Matches the A2A draft-1 _jcs_exact()
-// pattern in the conformance harness — no float coercion, exact integers.
-// Used so Rust/Python/Go implementations can byte-match our signed payloads.
-function jcsCanonicalize(obj) {
-  if (obj === null) return "null";
-  if (typeof obj === "boolean") return obj ? "true" : "false";
-  if (typeof obj === "number") {
-    if (!Number.isFinite(obj)) throw new Error("non-finite number in JCS payload");
-    if (!Number.isInteger(obj) && Math.abs(obj) > Number.MAX_SAFE_INTEGER) {
-      throw new Error("large float canonicalization not implemented");
-    }
-    return JSON.stringify(obj);
-  }
-  if (typeof obj === "string") return JSON.stringify(obj);
-  if (Array.isArray(obj)) {
-    return "[" + obj.map(jcsCanonicalize).join(",") + "]";
-  }
-  if (typeof obj === "object") {
-    const keys = Object.keys(obj).sort();
-    return "{" + keys.map(k => JSON.stringify(k) + ":" + jcsCanonicalize(obj[k])).join(",") + "}";
-  }
-  throw new Error("unsupported JCS type: " + typeof obj);
-}
 
 // Verify an Ed25519 signature in multibase encoding.
 //   publicKeyBase64url — 43-44 char base64url (Ed25519 32-byte raw key)
@@ -1105,10 +1177,10 @@ async function registerAgent(request, db) {
   // unless we actually checked. The weekly cron refreshes both for did:wba rows.
   const didWbaResolvedCol = isDidWba(creatorDid) ? (didWbaResolved ? 1 : 0) : null;
   const didWbaCheckedAtCol = isDidWba(creatorDid) ? now : null;
-  await db.prepare(
+  const insertAgentStmt = db.prepare(
     `INSERT INTO agents (air_id, name, description, creator_did, creator_name, creator_type, capabilities, security_certifications, transparency_open_source, transparency_code_repo, transparency_docs_url, verification_level, verified, status, created_at, updated_at, public_key, agent_secret_hash, did_wba_resolved, did_wba_last_checked_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'self-verified', 0, 'active', ?, ?, ?, ?, ?, ?)`
-  ).bind(airId, name, description, creatorDid, creatorName, creatorType, capabilities, securityCerts, openSource, codeRepo, docsUrl, now, now, publicKey, agentSecretHash, didWbaResolvedCol, didWbaCheckedAtCol).run();
+  ).bind(airId, name, description, creatorDid, creatorName, creatorType, capabilities, securityCerts, openSource, codeRepo, docsUrl, now, now, publicKey, agentSecretHash, didWbaResolvedCol, didWbaCheckedAtCol);
 
   // Calculate and insert trust score
   const agentRow = {
@@ -1122,10 +1194,23 @@ async function registerAgent(request, db) {
   };
   const score = calculateInitialTrustScore(agentRow);
 
-  await db.prepare(
+  const insertTrustStmt = db.prepare(
     `INSERT INTO trust_scores (air_id, total_score, grade, provenance, behavioral, transparency, security, peer_attestations, calculated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).bind(airId, score.total_score, score.grade, score.provenance, score.behavioral, score.transparency, score.security, score.peer_attestations, now).run();
+  ).bind(airId, score.total_score, score.grade, score.provenance, score.behavioral, score.transparency, score.security, score.peer_attestations, now);
+
+  // Record the "registered" audit event and commit it in ONE atomic batch with
+  // the agent + trust-score inserts. audit-or-fail: if the audit insert can't be
+  // written (UNIQUE(prev_hash) contention), the whole registration rolls back.
+  const auditStmt = await recordAuditEvent(db, { airId, event: "registered", changedFields: null, actor: "registrant", now });
+  try {
+    await db.batch([insertAgentStmt, insertTrustStmt, auditStmt]);
+  } catch (err) {
+    if (isAuditChainContention(err)) {
+      return json({ error: "audit chain contention, please retry", air_id: airId }, 409);
+    }
+    throw err;
+  }
 
   const warnings = [];
   if (duplicateNameCount > 0) {
@@ -1187,30 +1272,39 @@ async function updateAgent(request, airId, db) {
   // Only allow updating specific fields
   const updates = [];
   const binds = [];
+  // Public-facing names of the fields the caller actually changed — recorded in
+  // the audit log so history shows WHAT changed (not the internal column names).
+  const changedFields = [];
 
   if (body.description !== undefined) {
     updates.push("description = ?");
     binds.push(String(body.description).trim().slice(0, 2000));
+    changedFields.push("description");
   }
   if (body.capabilities !== undefined && Array.isArray(body.capabilities)) {
     updates.push("capabilities = ?");
     binds.push(JSON.stringify(body.capabilities.slice(0, 20)));
+    changedFields.push("capabilities");
   }
   if (body.security_certifications !== undefined && Array.isArray(body.security_certifications)) {
     updates.push("security_certifications = ?");
     binds.push(JSON.stringify(body.security_certifications.slice(0, 10)));
+    changedFields.push("security_certifications");
   }
   if (body.open_source !== undefined) {
     updates.push("transparency_open_source = ?");
     binds.push(body.open_source ? 1 : 0);
+    changedFields.push("open_source");
   }
   if (body.code_repository !== undefined) {
     updates.push("transparency_code_repo = ?");
     binds.push(String(body.code_repository).trim().slice(0, 500));
+    changedFields.push("code_repository");
   }
   if (body.documentation_url !== undefined) {
     updates.push("transparency_docs_url = ?");
     binds.push(String(body.documentation_url).trim().slice(0, 500));
+    changedFields.push("documentation_url");
   }
   // service_endpoints — W3C did-core service[] entries appended to the DID document.
   // Phase 3 Stage 3.0.1a. Strict validation: array of objects each with string `type`
@@ -1222,6 +1316,7 @@ async function updateAgent(request, airId, db) {
     }
     updates.push("service_endpoints = ?");
     binds.push(result.normalized.length === 0 ? null : JSON.stringify(result.normalized));
+    changedFields.push("service_endpoints");
   }
 
   if (updates.length === 0) {
@@ -1233,9 +1328,22 @@ async function updateAgent(request, airId, db) {
   binds.push(now);
   binds.push(airId);
 
-  await db.prepare(
+  const updateStmt = db.prepare(
     "UPDATE agents SET " + updates.join(", ") + " WHERE air_id = ?"
-  ).bind(...binds).run();
+  ).bind(...binds);
+
+  // Record the "updated" audit event and commit it in ONE atomic batch with the
+  // UPDATE. audit-or-fail: if the audit insert can't be written (UNIQUE(prev_hash)
+  // contention), the field update rolls back too.
+  const auditStmt = await recordAuditEvent(db, { airId, event: "updated", changedFields, actor: "owner", now });
+  try {
+    await db.batch([updateStmt, auditStmt]);
+  } catch (err) {
+    if (isAuditChainContention(err)) {
+      return json({ error: "audit chain contention, please retry", air_id: airId }, 409);
+    }
+    throw err;
+  }
 
   // Recalculate trust score with updated data. Routes through recomputeTrustScore
   // so an agent edit preserves earned trust instead of wiping peer back to 300 (#3).
@@ -1272,9 +1380,22 @@ async function deleteAgent(airId, db) {
 
   // Soft delete — set status to 'deleted' rather than removing the row
   const now = new Date().toISOString();
-  await db.prepare(
+  const deleteStmt = db.prepare(
     "UPDATE agents SET status = 'deleted', updated_at = ? WHERE air_id = ?"
-  ).bind(now, airId).run();
+  ).bind(now, airId);
+
+  // Record the "deleted" audit event and commit it in ONE atomic batch with the
+  // soft-delete UPDATE. audit-or-fail: if the audit insert can't be written
+  // (UNIQUE(prev_hash) contention), the soft-delete rolls back too.
+  const auditStmt = await recordAuditEvent(db, { airId, event: "deleted", changedFields: null, actor: "admin", now });
+  try {
+    await db.batch([deleteStmt, auditStmt]);
+  } catch (err) {
+    if (isAuditChainContention(err)) {
+      return json({ error: "audit chain contention, please retry", air_id: airId }, 409);
+    }
+    throw err;
+  }
 
   // Dead-vouch filter (#3): this agent's vouches no longer count — rescore everyone
   // it vouched for so their trust + Verified drop immediately.
@@ -1291,6 +1412,57 @@ async function deleteAgent(airId, db) {
     deleted_at: now,
     message: "Agent deleted (soft delete). Data retained for audit purposes.",
   });
+}
+
+// ============================================================
+// AGENT-RECORD AUDIT LOG — public read endpoints (registry #5)
+// ============================================================
+//
+// GET /api/v1/agents/{air_id}/history — paginated, tamper-evident change log
+// for one agent. Returns the hash-linked entries (prev_hash + entry_hash) so a
+// third party can independently re-verify the chain.
+
+async function getAgentHistory(airId, url, db) {
+  const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 100);
+  const offset = parseInt(url.searchParams.get("offset") || "0");
+  const { results } = await db.prepare(
+    "SELECT id, event, changed_fields, actor, created_at, prev_hash, entry_hash FROM agent_audit_log WHERE air_id = ? ORDER BY id ASC LIMIT ? OFFSET ?"
+  ).bind(airId, limit, offset).all();
+  const countRow = await db.prepare("SELECT COUNT(*) AS n FROM agent_audit_log WHERE air_id = ?").bind(airId).first();
+  return json({
+    air_id: airId,
+    history: (results || []).map((r) => ({
+      id: r.id, event: r.event,
+      changed_fields: r.changed_fields ? JSON.parse(r.changed_fields) : null,
+      actor: r.actor, created_at: r.created_at, prev_hash: r.prev_hash, entry_hash: r.entry_hash,
+    })),
+    total: countRow?.n ?? 0,
+    limit, offset,
+    note: "Agent-record history tracked since 2026-06-09 (audit-log launch).",
+  });
+}
+
+// GET /api/v1/audit/verify?from=&to= — bounded integrity check of the global
+// audit chain. Recomputes each entry's hash and confirms the prev_hash linkage.
+// `from`/`to` keep the walk cheap on large logs.
+
+async function getAuditVerify(url, env) {
+  const fromId = parseInt(url.searchParams.get("from") || "0");
+  const toParam = url.searchParams.get("to");
+  const toId = toParam ? parseInt(toParam) : null;
+  const result = await verifyAuditChain(env.DB, { fromId, toId });
+  // Cross-check the live tip against the latest external anchor. Best-effort:
+  // last_anchor is null when no anchor is published or GitHub is unreachable,
+  // so the integrity verdict never depends on a third party being available.
+  const tip = await computeChainTip(env.DB);
+  const anchor = await fetchLatestAnchor(env); // best-effort, may be null
+  const last_anchor = anchor ? {
+    anchored_at: anchor.anchored_at,
+    tip_hash: anchor.tip_hash,
+    entry_count: anchor.entry_count,
+    matches: tip.tip_hash === anchor.tip_hash && tip.count >= anchor.entry_count,
+  } : null;
+  return json({ ...result, live_tip_hash: tip.tip_hash, live_count: tip.count, last_anchor });
 }
 
 // ============================================================

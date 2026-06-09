@@ -22,10 +22,11 @@
 5. [Identity & DID Model](#identity--did-model)
 6. [Trust Score Methodology](#trust-score-methodology)
 7. [Attestations & AIR Verified](#attestations--air-verified)
-8. [API Overview](#api-overview)
-9. [Security Considerations](#security-considerations)
-10. [Governance Model](#governance-model)
-11. [Glossary](#glossary)
+8. [Agent-Record Audit Log](#agent-record-audit-log)
+9. [API Overview](#api-overview)
+10. [Security Considerations](#security-considerations)
+11. [Governance Model](#governance-model)
+12. [Glossary](#glossary)
 
 ---
 
@@ -347,6 +348,77 @@ where `verification_score = Σ (attester_trust_at_issue × tenure_multiplier_at_
 
 ---
 
+## Agent-Record Audit Log
+
+Every create, update, and delete operation on an agent record is written to a public, append-only, hash-linked audit log. The log records the **fact** of each change — which field names changed, when, and which actor type performed it — never the old or new field values.
+
+### What is logged
+
+| Event | Trigger |
+|-------|---------|
+| `registered` | Agent registration |
+| `updated` | `PUT /agents/{air_id}` (owner) |
+| `deleted` | `DELETE /agents/{air_id}` (admin) |
+| `redacted` | GDPR erasure tombstone (see below) |
+
+### Entry structure
+
+Each entry contains:
+
+| Field | Notes |
+|-------|-------|
+| `id` | Chain sequence number (not part of the hash) |
+| `event` | One of `registered`, `updated`, `deleted`, `redacted` |
+| `changed_fields` | Array of public field names changed; `null` for register/delete/redact events |
+| `actor` | Who performed the action (see Actor semantics below) |
+| `created_at` | Worker-generated ISO 8601 timestamp — never client-supplied |
+| `prev_hash` | The previous entry's `entry_hash`; the literal string `"GENESIS"` for the first entry |
+| `entry_hash` | SHA-256 hex digest of the entry (see Hash recipe below) |
+
+### Actor semantics
+
+| Actor | Meaning |
+|-------|---------|
+| `registrant` | Self-asserted registrant at registration time — **not** an authenticated owner |
+| `owner` | Holder of the agent secret at update time |
+| `admin` | Admin-key deletion |
+| `system` | Reserved for cron-driven changes |
+
+### Hash recipe
+
+```
+entry_hash = sha256hex(
+  [air_id, event, sortedJCS(changed_fields) or "", actor, created_at].join("\n")
+  + "\n" + prev_hash
+)
+```
+
+- `changed_fields` is serialized as **sorted JCS** (JSON Canonicalization Scheme, RFC 8785, keys sorted) so the hash is deterministic regardless of field order.
+- For events where `changed_fields` is `null` (register/delete/redact), the empty string `""` is used in the hash input.
+- The genesis entry uses the literal string `"GENESIS"` as `prev_hash`.
+- Anyone can re-derive every `entry_hash` and verify the `prev_hash` linkage — no registry access required.
+
+### Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /agents/{air_id}/history` | Paginated history for one agent (`limit`, `offset`) |
+| `GET /audit/verify?from=&to=` | Bounded integrity check of the global audit chain |
+
+### Integrity claim
+
+Tamper-evident against accidental corruption and partial edits, **and against the operator itself back to the last weekly anchor**: every hash is reproducible by third parties (sorted-JCS `changed_fields`; `entry_hash = sha256(content + prev_hash)`; genesis = `"GENESIS"`), and the chain tip + entry count are published every Sunday to the public, append-only [`AgentIdentityRegistry/audit-anchors`](https://github.com/AgentIdentityRegistry/audit-anchors) repo. Anyone can cross-check the live chain against that external anchor via `GET /api/v1/audit/verify` (`last_anchor.matches`). Integrity between weekly anchors is not real-time-guaranteed against the operator.
+
+### GDPR and erasure
+
+The chain stores only pseudonymous data (AIR ID, field names, timing). Legal erasure is handled by a `redacted` tombstone event that records the fact of erasure without revealing the erased content — silent removal would break the hash chain. Legal review is recommended before any GDPR-scope production launch.
+
+### Backfill note
+
+History is tracked from the audit-log launch date (2026-06-09). Agents registered before that date have no `registered` entry in the log.
+
+---
+
 ## API Overview
 
 Base URL: `https://agentidentityregistry.org/api/v1`. The full machine-readable contract is at [`/api/v1/openapi.yaml`](../api/openapi.yaml).
@@ -368,7 +440,9 @@ GET  /agents/{air_id}/badge.svg           Embeddable trust badge (SVG)
 GET  /agents/{air_id}/graph               Trust ego-graph
 GET  /agents/{air_id}/dependents          Agents this one vouches for
 GET  /graph/stats                         Registry-wide graph stats
-GET  /openapi.yaml                         This API contract
+GET  /agents/{air_id}/history             Agent-record audit log (paginated)
+GET  /audit/verify                        Bounded audit chain integrity check
+GET  /openapi.yaml                        This API contract
 ```
 
 **Agent management:**
