@@ -6,7 +6,7 @@
 // wrangler.toml turns the .yaml import into a string at build time.
 import OPENAPI_YAML from "../openapi.yaml";
 import { base58Decode, base64urlToBytes, ed25519ToMultibase, documentContainsKey } from "./did-keys.mjs";
-import { calculateInitialTrustScore, computeVerifiedStatus, recomputeTrustScore, recomputeDependentsOf } from "./trust.mjs";
+import { calculateInitialTrustScore, computeVerifiedStatus, recomputeTrustScore, recomputeDependentsOf, computeEvidenceLabel, EVIDENCE_LABELS_VERSION, EVIDENCE_LABEL_DISCLAIMER, EVIDENCE_CRITERIA_URL } from "./trust.mjs";
 
 export default {
   async fetch(request, env) {
@@ -777,6 +777,16 @@ async function getAgent(airId, db) {
       transparency: agent.transparency,
       security: agent.security,
       peer_attestations: agent.peer_attestations,
+    },
+    evidence: {
+      label: computeEvidenceLabel(verifiedStatus, {
+        provenance: agent.provenance,
+        transparency: agent.transparency,
+        security: agent.security,
+      }),
+      definition_version: EVIDENCE_LABELS_VERSION,
+      basis: EVIDENCE_LABEL_DISCLAIMER,
+      criteria_url: EVIDENCE_CRITERIA_URL,
     },
   });
 }
