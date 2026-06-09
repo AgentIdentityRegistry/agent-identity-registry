@@ -48,6 +48,19 @@ The five weights sum to 1.0, so the result stays on the 0-1000 scale.
 
 > **Current ceiling**: With today's implemented scoring, a maximally-favourable agent (Provenance 600, Behavioral 500, Transparency 650, Security 600, Peer Attestations capped at 1000) reaches a total of **645 — grade BBB**. Grades A, AA, and AAA are therefore reserved until behavioral telemetry and higher-confidence inputs ship; no live agent can reach them yet.
 
+## Evidence Labels (v2026-06-09)
+
+Every agent carries one **factual** label describing *what evidence exists* — never a verdict. Surfaced in `GET /agents/{id}` and `GET /agents/{id}/trust-score` (the `evidence` object) and on `badge.svg`.
+
+| Label | Criteria |
+|---|---|
+| **Verified** | Verified status: ≥3 independent attesters across ≥3 distinct WHOIS roots |
+| **Attested** | Not Verified, but ≥1 active independent attestation exists |
+| **Self-declared** | No attestations; score raised above the anonymous baseline by self-reported provenance/transparency/security data (any component > 300) |
+| **Registered** | Anonymous baseline; no enrichment, no attestations |
+
+Labels are mechanically derived and are **not an endorsement or certification by AIR**. The criteria are versioned (`definition_version` in the API echoes the version above); changes are announced and changelogged. Disputes follow the [trust-score dispute process](#dispute--appeals-process). `badge.svg?format=score` returns the legacy numeric badge.
+
 ## Component Rubrics
 
 ### 1. Provenance Score (25% weight)
