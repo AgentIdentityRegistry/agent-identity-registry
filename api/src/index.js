@@ -8,7 +8,7 @@ import OPENAPI_YAML from "../openapi.yaml";
 import { base58Decode, base64urlToBytes, ed25519ToMultibase, documentContainsKey } from "./did-keys.mjs";
 import { calculateInitialTrustScore, computeVerifiedStatus, recomputeTrustScore, recomputeDependentsOf, computeEvidenceLabel, buildEvidence, EVIDENCE_LABEL_DISCLAIMER } from "./trust.mjs";
 import { sha256Hex, jcsCanonicalize } from "./crypto-utils.mjs";
-import { recordAuditEvent, verifyAuditChain, computeChainTip } from "./audit.mjs";
+import { recordAuditEvent, verifyAuditChain } from "./audit.mjs";
 
 // Detects a D1 UNIQUE/constraint violation on the audit chain's prev_hash —
 // two concurrent mutations racing to extend the same chain tip. Surfaced to

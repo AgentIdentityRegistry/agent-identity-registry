@@ -838,12 +838,12 @@ paths:
         - name: limit
           in: query
           required: false
-          description: Max entries to return (1-100). Defaults to 20.
+          description: Max entries to return (1-100). Defaults to 50.
           schema:
             type: integer
             minimum: 1
             maximum: 100
-            default: 20
+            default: 50
         - name: offset
           in: query
           required: false

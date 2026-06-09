@@ -35,10 +35,14 @@ export async function recordAuditEvent(db, { airId, event, changedFields, actor,
   const { tip_hash: prevHash } = await computeChainTip(db);
   const content = { air_id: airId, event, changedFields, actor, created_at: now };
   const entryHash = await auditEntryHash(content, prevHash);
+  // Store the SAME canonical bytes the hash used (single source via
+  // canonicalizeChangedFields) so verifyAuditChain re-derives identically.
+  // Empty/none → NULL (column is nullable; register/delete pass null).
+  const canonicalFields = canonicalizeChangedFields(changedFields);
   return db.prepare(
     `INSERT INTO agent_audit_log (air_id, event, changed_fields, actor, created_at, prev_hash, entry_hash)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).bind(airId, event, changedFields ? jcsCanonicalize([...changedFields].sort()) : null, actor, now, prevHash, entryHash);
+  ).bind(airId, event, canonicalFields === "" ? null : canonicalFields, actor, now, prevHash, entryHash);
 }
 
 // Bounded walk: recompute each hash + check linkage. Returns the integrity verdict.
