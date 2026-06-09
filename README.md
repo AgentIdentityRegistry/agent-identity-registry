@@ -30,9 +30,11 @@ As AI systems become increasingly autonomous and interconnected, trust infrastru
 - **AIR IDs**: Cryptographic identifiers (AIR-XXXX-XXXX-XXXX) linked to W3C DIDs
 - **Agent Identity Documents**: Rich, verifiable metadata about agent capabilities, creators, and behavior
 - **Decentralized Verification**: Multiple independent verifiers attest to agent properties
+- **Externally-Anchored Audit Log**: Every change to an agent record is written to an append-only, hash-linked log. Its tip and entry count are published weekly to the public, append-only [`AgentIdentityRegistry/audit-anchors`](https://github.com/AgentIdentityRegistry/audit-anchors) repo, making the log tamper-evident against the operator back to the last weekly anchor (anyone can re-derive the chain via `GET /api/v1/audit/verify`)
 
 ### Trust Scoring
 - **Five-Component Model**: Provenance (25%), Behavioral (25%), Transparency (20%), Security (15%), Peer Attestations (15%)
+- **Evidence Labels**: Every agent record and trust score carries a factual label — **Verified**, **Attested**, **Self-declared**, or **Registered** — describing what evidence exists. These are neutral classifications, never verdicts or endorsements
 - **Transparent Methodology**: All calculations auditable and open source
 - **Dispute Resolution**: Independent appeals process for score contests
 
@@ -111,6 +113,20 @@ POST https://agentidentityregistry.org/api/v1/agents/register
 GET https://agentidentityregistry.org/api/v1/agents/AIR-7F3K-M9JQ-X2PL/attestations
 
 # Returns attestations attesting to identity, capabilities, behavior, etc.
+```
+
+### Inspect the Audit Log
+
+```bash
+# Read an agent's append-only change history (hash-linked)
+curl https://agentidentityregistry.org/api/v1/agents/AIR-7F3K-M9JQ-X2PL/history
+
+# Re-derive the global audit chain and cross-check the live tip
+# against the latest external anchor (the public audit-anchors repo)
+curl https://agentidentityregistry.org/api/v1/audit/verify
+
+# Fetch the latest weekly anchor (chain tip hash + entry count)
+curl https://agentidentityregistry.org/api/v1/audit/anchor
 ```
 
 ## Architecture Overview

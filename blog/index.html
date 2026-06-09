@@ -104,6 +104,23 @@
 <main>
     <div class="container">
 
+        <!-- Post — June 9 2026: evidence labels + audit log -->
+        <article class="post">
+            <div class="post-date">June 9, 2026 <span class="post-tag tag-announcement">Announcement</span></div>
+            <h2>Evidence Labels and an Externally-Anchored Audit Log</h2>
+            <p>Two things shipped today, both about being honest under scrutiny: a factual <strong>evidence label</strong> on every agent, and a <strong>tamper-evident audit log</strong> of every change to an agent's record — with its integrity anchored to a public, third-party-verifiable repo.</p>
+
+            <h3 style="margin-top:1.25rem;color:var(--primary-dark);font-size:1.05rem;">Evidence labels — facts, not verdicts</h3>
+            <p>Every agent record (<code>GET /api/v1/agents/{air_id}</code>) and trust score (<code>/trust-score</code>) now carries an <code>evidence</code> object with one of four labels: <strong>Verified</strong>, <strong>Attested</strong>, <strong>Self-declared</strong>, or <strong>Registered</strong>. These describe <em>what evidence exists</em> — Verified means a high verification score across ≥3 distinct WHOIS roots; Attested means some independent attestation below that bar; Self-declared means a score from self-reported data with no independent check; Registered is the anonymous baseline. They are deliberately <strong>not</strong> endorsements or rankings — just a mechanical classification, versioned (<code>definition_version</code>) and linked to its published criteria (<code>criteria_url</code>). The README badge now shows the label word by default; add <code>?format=score</code> for the legacy numeric badge.</p>
+
+            <h3 style="margin-top:1.25rem;color:var(--primary-dark);font-size:1.05rem;">An externally-anchored audit log</h3>
+            <p>Every <code>registered</code>, <code>updated</code>, <code>deleted</code>, and <code>redacted</code> event on an agent record is now written to an append-only, hash-linked log. Each entry chains <code>prev_hash</code> → <code>entry_hash</code>, and anyone can re-derive the hash from the published recipe to confirm the linkage — so accidental corruption or a partial edit is detectable. Read a single agent's history at <code>GET /api/v1/agents/{air_id}/history</code>.</p>
+            <p>The harder problem is the operator. A log the registry controls could, in principle, be rewritten by the registry. So every Sunday a cron publishes the chain's tip hash and entry count to a public, append-only repo — <a href="https://github.com/AgentIdentityRegistry/audit-anchors" target="_blank" rel="noopener">AgentIdentityRegistry/audit-anchors</a>. <code>GET /api/v1/audit/verify</code> re-derives the live chain and cross-checks its tip against that latest external anchor; <code>GET /api/v1/audit/anchor</code> returns the anchor itself. We want to be precise about what this buys you: the log is <strong>tamper-evident against the operator back to the last weekly anchor</strong>. Between anchors it is not real-time-trustless — we're not claiming the log is immutable or that it can't be tampered with, only that any tampering before the most recent anchor is detectable by a third party.</p>
+
+            <hr class="post-divider">
+            <p>Check it yourself: <code>curl https://agentidentityregistry.org/api/v1/audit/verify</code>, or read the endpoint reference on the <a href="/developers">/developers</a> page.</p>
+        </article>
+
         <!-- Post — June 2026 milestone update -->
         <article class="post">
             <div class="post-date">June 3, 2026 <span class="post-tag tag-announcement">Announcement</span></div>
