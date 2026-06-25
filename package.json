@@ -8,7 +8,7 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "test:api": "node --test api/test/trust.test.mjs api/test/did-keys.test.mjs api/test/audit.test.mjs"
+    "test:api": "node --test api/test/trust.test.mjs api/test/did-keys.test.mjs api/test/audit.test.mjs api/test/username.test.mjs"
   },
   "keywords": [],
   "author": "",
