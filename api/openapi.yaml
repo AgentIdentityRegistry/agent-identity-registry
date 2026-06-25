@@ -173,6 +173,79 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /agents/check-username:
+    get:
+      summary: Check whether a published @handle is available
+      operationId: checkUsername
+      tags: [public]
+      description: |
+        Pre-claim availability probe for the unique, published `username`
+        (@handle). Unlike `name`, a handle is globally unique: at most one
+        active agent can hold it. A handle is `available` only when no active
+        agent holds it AND no unexpired release tombstone blocks it (a handle
+        released by another agent is reserved for a 30-day cooldown). An
+        invalid handle returns 200 with `valid: false` and an `error` reason.
+
+        Conservative + unauthenticated: because it has no caller identity, it
+        may over-report `cooldown` for a handle the CALLER themselves released
+        (the original releaser can re-claim within the window, but this probe
+        can't tell it's you). The authoritative answer is the `PUT` itself —
+        treat `cooldown` here as advisory, not a hard "no".
+      parameters:
+        - name: username
+          in: query
+          required: true
+          description: Handle to check (3-30 chars of a-z, 0-9, underscore; NFKC + lowercased).
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 30
+      responses:
+        "200":
+          description: Availability result (also used for invalid handles).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsernameCheck"
+
+  /agents/by-username/{username}:
+    parameters:
+      - name: username
+        in: path
+        required: true
+        description: The published @handle (case-insensitive; NFKC + lowercased).
+        schema:
+          type: string
+          minLength: 3
+          maxLength: 30
+    get:
+      summary: Resolve a published @handle to its full agent record
+      operationId: getAgentByUsername
+      tags: [public]
+      description: |
+        Looks up the active agent holding this `username` and returns the same
+        full record as `GET /agents/{air_id}`. Returns 404 if no active agent
+        holds the handle, or 400 if the handle is malformed.
+      responses:
+        "200":
+          description: Full agent record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+        "400":
+          description: Malformed username
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: No active agent with that username
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /agents/{air_id}:
     parameters:
       - $ref: "#/components/parameters/AirId"
@@ -251,6 +324,18 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "404":
           description: No agent with that AIR ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: |
+            Either of two distinct cases:
+            (1) `username` is taken or in cooldown — already held by another
+            active agent (FCFS UNIQUE-index backstop), or within its
+            post-release 30-day cooldown window.
+            (2) audit-chain write contention — two mutations raced to extend
+            the same audit-chain tip; the update was not applied, retry.
           content:
             application/json:
               schema:
@@ -1142,6 +1227,12 @@ components:
         name:
           type: string
           maxLength: 200
+        username:
+          type: [string, "null"]
+          description: |
+            The agent's unique, published @handle, or null if unclaimed.
+            Globally unique among active agents. Set via `PUT /agents/{air_id}`.
+          pattern: ^[a-z0-9_]{3,30}$
         description:
           type: string
           maxLength: 2000
@@ -1339,6 +1430,30 @@ components:
             $ref: "#/components/schemas/ExistingAgent"
           maxItems: 5
 
+    UsernameCheck:
+      type: object
+      description: |
+        Availability result for `GET /agents/check-username`. When the handle is
+        malformed, `valid` is false, `available` is false, and `error` explains
+        why. When valid, `available` reflects both active holders and the release
+        cooldown, with `reason` giving the specific blocker.
+      required: [username, valid, available]
+      properties:
+        username:
+          type: string
+          description: The handle as checked (normalized when valid, raw when invalid).
+        valid:
+          type: boolean
+        available:
+          type: boolean
+        reason:
+          type: string
+          enum: [available, taken, cooldown]
+          description: Present when `valid` is true.
+        error:
+          type: string
+          description: Present when `valid` is false.
+
     # ---------- REGISTRATION ----------
 
     RegistrationRequest:
@@ -1455,9 +1570,19 @@ components:
     UpdateRequest:
       type: object
       description: |
-        All fields optional. Only the six listed here are mutable.
+        All fields optional. Only the fields listed here are mutable.
         Supplying an empty body returns 400.
       properties:
+        username:
+          type: [string, "null"]
+          description: |
+            Claim, change, or clear the agent's unique published @handle.
+            3-30 chars of a-z, 0-9, underscore (NFKC + lowercased on the way in;
+            reserved/AIR-id-mimic handles are rejected). Pass `null` or `""` to
+            clear. Globally unique among active agents — a conflicting claim
+            returns 409; a handle released by another agent is reserved for a
+            30-day cooldown and also returns 409 until it expires.
+          pattern: ^[a-z0-9_]{3,30}$
         description:
           type: string
           maxLength: 2000

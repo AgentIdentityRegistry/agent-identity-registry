@@ -53,6 +53,26 @@ class D1Statement {
 class D1Database {
   constructor(sqlite) { this._sqlite = sqlite; }
   prepare(sql) { return new D1Statement(this._sqlite.prepare(sql)); }
+  // Atomic multi-statement batch, mirroring Cloudflare D1's db.batch(). Wraps the
+  // statements in a transaction so the worker's atomicity guarantees (and UNIQUE
+  // conflict propagation) are real under test. Uses prepare().run() for BEGIN/COMMIT/
+  // ROLLBACK to avoid the repo's `.exec(` security hook. `stmts` are D1Statement
+  // instances carrying their own bound prepared statement + params.
+  async batch(stmts) {
+    this._sqlite.prepare("BEGIN").run();
+    try {
+      const results = [];
+      for (const s of stmts) {
+        const r = s._stmt.run(...s._params);
+        results.push({ meta: { last_row_id: Number(r.lastInsertRowid), changes: r.changes } });
+      }
+      this._sqlite.prepare("COMMIT").run();
+      return results;
+    } catch (e) {
+      this._sqlite.prepare("ROLLBACK").run();
+      throw e;
+    }
+  }
 }
 
 export function makeTestD1() {

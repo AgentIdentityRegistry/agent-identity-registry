@@ -9,6 +9,7 @@ import { base58Decode, base64urlToBytes, ed25519ToMultibase, documentContainsKey
 import { calculateInitialTrustScore, computeVerifiedStatus, recomputeTrustScore, recomputeDependentsOf, computeEvidenceLabel, buildEvidence, EVIDENCE_LABEL_DISCLAIMER } from "./trust.mjs";
 import { sha256Hex, jcsCanonicalize } from "./crypto-utils.mjs";
 import { recordAuditEvent, verifyAuditChain, buildAnchor, publishAnchor, computeChainTip } from "./audit.mjs";
+import { validateUsername, isHandleInCooldown, isUsernameConflict, lookupHandle } from "./validation.mjs";
 
 // Detects a D1 UNIQUE/constraint violation on the audit chain's prev_hash —
 // two concurrent mutations racing to extend the same chain tip. Surfaced to
@@ -103,6 +104,11 @@ export default {
         response = await registerAgent(request, env.DB);
       } else if (path === "/api/v1/agents/check-name" && method === "GET") {
         response = await checkName(url, env.DB);
+      } else if (path === "/api/v1/agents/check-username" && method === "GET") {
+        response = await checkUsername(url, env.DB);
+      } else if (path.match(/^\/api\/v1\/agents\/by-username\/[^/]+$/) && method === "GET") {
+        const handle = decodeURIComponent(path.split("/")[5]);
+        response = await getAgentByUsername(handle, env.DB);
       } else if (path === "/api/v1/admin/stats" && method === "GET") {
         response = await adminAuth(request, env) || await adminStats(env.DB);
       } else if (path === "/api/v1/admin/recent" && method === "GET") {
@@ -805,6 +811,7 @@ async function getAgent(airId, db) {
     type: "AgentIdentity",
     air_id: agent.air_id,
     name: agent.name,
+    username: agent.username || null,
     description: agent.description,
     creator: {
       did: agent.creator_did,
@@ -1269,12 +1276,22 @@ async function updateAgent(request, airId, db) {
     return json({ error: "Invalid JSON body" }, 400);
   }
 
+  // Single timestamp for this update: used as updated_at, the cooldown-gate "now",
+  // and any tombstone released_at so they're all consistent within one PUT.
+  const now = new Date().toISOString();
+
   // Only allow updating specific fields
   const updates = [];
   const binds = [];
   // Public-facing names of the fields the caller actually changed — recorded in
   // the audit log so history shows WHAT changed (not the internal column names).
   const changedFields = [];
+  // Extra statements (username tombstone INSERT/DELETE) threaded into the SAME
+  // atomic batch as the agents UPDATE + audit insert. Built in the username branch.
+  const usernameStmts = [];
+  // The handle being claimed this PUT (normalized), or null. Used only to label a
+  // UNIQUE-index 409 if another agent wins the FCFS race.
+  let claimedUsername = null;
 
   if (body.description !== undefined) {
     updates.push("description = ?");
@@ -1318,12 +1335,64 @@ async function updateAgent(request, airId, db) {
     binds.push(result.normalized.length === 0 ? null : JSON.stringify(result.normalized));
     changedFields.push("service_endpoints");
   }
-
-  if (updates.length === 0) {
-    return json({ error: "No valid fields to update. Updatable fields: description, capabilities, security_certifications, open_source, code_repository, documentation_url, service_endpoints" }, 400);
+  // username (@handle) — Milestone G. The published, unique, claimable handle.
+  // Layered uniqueness: this branch read-gates on the cooldown tombstone for UX,
+  // while the uq_agents_username UNIQUE index is the race-proof FCFS backstop
+  // (caught in the batch catch below). Tombstone INSERT/DELETE statements are
+  // queued into usernameStmts so they commit atomically with the UPDATE.
+  if (body.username !== undefined) {
+    if (body.username === null || body.username === "") {
+      // Clearing the handle. Skip validation/cooldown; release any held handle.
+      updates.push("username = ?");
+      binds.push(null);
+      changedFields.push("username");
+      if (existing.username) {
+        usernameStmts.push(
+          db.prepare(
+            "INSERT OR REPLACE INTO username_tombstones (username_normalized, released_by_air_id, released_at, username_display) VALUES (?, ?, ?, ?)"
+          ).bind(existing.username, airId, now, existing.username)
+        );
+      }
+    } else {
+      const v = validateUsername(body.username);
+      if (!v.valid) {
+        return json({ error: "Invalid username: " + v.error }, 400);
+      }
+      if (v.normalized === existing.username) {
+        // Unchanged — no-op. Do not push an update or tombstone.
+      } else {
+        // Cooldown read-gate: a handle released by a DIFFERENT agent within the
+        // window is not yet claimable. The agent's own air id is the claimant.
+        const tomb = await db.prepare(
+          "SELECT released_by_air_id, released_at FROM username_tombstones WHERE username_normalized = ?"
+        ).bind(v.normalized).first();
+        if (isHandleInCooldown(tomb, airId, Date.parse(now))) {
+          return json({ error: "Username is in a cooldown period and not yet claimable", username: v.normalized }, 409);
+        }
+        updates.push("username = ?");
+        binds.push(v.normalized);
+        changedFields.push("username");
+        claimedUsername = v.normalized;
+        // Releasing the old handle (if any) as part of claiming a different one.
+        if (existing.username && existing.username !== v.normalized) {
+          usernameStmts.push(
+            db.prepare(
+              "INSERT OR REPLACE INTO username_tombstones (username_normalized, released_by_air_id, released_at, username_display) VALUES (?, ?, ?, ?)"
+            ).bind(existing.username, airId, now, existing.username)
+          );
+        }
+        // The freshly-claimed handle is active again — clear any own/expired tombstone for it.
+        usernameStmts.push(
+          db.prepare("DELETE FROM username_tombstones WHERE username_normalized = ?").bind(v.normalized)
+        );
+      }
+    }
   }
 
-  const now = new Date().toISOString();
+  if (updates.length === 0) {
+    return json({ error: "No valid fields to update. Updatable fields: description, capabilities, security_certifications, open_source, code_repository, documentation_url, service_endpoints, username" }, 400);
+  }
+
   updates.push("updated_at = ?");
   binds.push(now);
   binds.push(airId);
@@ -1337,8 +1406,15 @@ async function updateAgent(request, airId, db) {
   // contention), the field update rolls back too.
   const auditStmt = await recordAuditEvent(db, { airId, event: "updated", changedFields, actor: "owner", now });
   try {
-    await db.batch([updateStmt, auditStmt]);
+    // Atomic: UPDATE + username tombstone INSERT/DELETE(s) + audit insert commit
+    // together or not at all. Tombstones sit between the UPDATE and the audit tip
+    // insert (which the contention guard targets).
+    await db.batch([updateStmt, ...usernameStmts, auditStmt]);
   } catch (err) {
+    if (isUsernameConflict(err)) {
+      // FCFS backstop: another active agent already holds this handle (UNIQUE index).
+      return json({ error: "Username already taken", username: claimedUsername }, 409);
+    }
     if (isAuditChainContention(err)) {
       return json({ error: "audit chain contention, please retry", air_id: airId }, 409);
     }
@@ -1373,23 +1449,38 @@ async function updateAgent(request, airId, db) {
 // ============================================================
 
 async function deleteAgent(airId, db) {
-  const existing = await db.prepare("SELECT air_id, name FROM agents WHERE air_id = ? AND status = 'active'").bind(airId).first();
+  const existing = await db.prepare("SELECT air_id, name, username FROM agents WHERE air_id = ? AND status = 'active'").bind(airId).first();
   if (!existing) {
     return json({ error: "Agent not found", air_id: airId }, 404);
   }
 
-  // Soft delete — set status to 'deleted' rather than removing the row
+  // Soft delete — set status to 'deleted' rather than removing the row. Also clear
+  // username: the partial UNIQUE index (uq_agents_username WHERE username IS NOT NULL)
+  // is NOT status-scoped, so a deleted row that kept its handle would occupy the index
+  // forever (handle permanently unclaimable) while check-username reports it available.
+  // Mirrors the owner-clear release path in updateAgent.
   const now = new Date().toISOString();
   const deleteStmt = db.prepare(
-    "UPDATE agents SET status = 'deleted', updated_at = ? WHERE air_id = ?"
+    "UPDATE agents SET status = 'deleted', username = NULL, updated_at = ? WHERE air_id = ?"
   ).bind(now, airId);
+
+  // If the agent held a handle, tombstone it (same 30-day cooldown as a manual release).
+  const usernameStmts = [];
+  if (existing.username) {
+    usernameStmts.push(
+      db.prepare(
+        "INSERT OR REPLACE INTO username_tombstones (username_normalized, released_by_air_id, released_at, username_display) VALUES (?, ?, ?, ?)"
+      ).bind(existing.username, airId, now, existing.username)
+    );
+  }
 
   // Record the "deleted" audit event and commit it in ONE atomic batch with the
   // soft-delete UPDATE. audit-or-fail: if the audit insert can't be written
-  // (UNIQUE(prev_hash) contention), the soft-delete rolls back too.
+  // (UNIQUE(prev_hash) contention), the soft-delete rolls back too. The audit-tip
+  // insert stays LAST so the contention guard targets it.
   const auditStmt = await recordAuditEvent(db, { airId, event: "deleted", changedFields: null, actor: "admin", now });
   try {
-    await db.batch([deleteStmt, auditStmt]);
+    await db.batch([deleteStmt, ...usernameStmts, auditStmt]);
   } catch (err) {
     if (isAuditChainContention(err)) {
       return json({ error: "audit chain contention, please retry", air_id: airId }, 409);
@@ -1483,6 +1574,56 @@ async function checkName(url, db) {
     count: match.results.length,
     existing_agents: match.results.map(function(r) { return { air_id: r.air_id, name: r.name }; }),
   });
+}
+
+// ============================================================
+// USERNAME (@handle) CHECK + RESOLVER (Milestone G)
+// ============================================================
+
+// GET /api/v1/agents/check-username?username=...
+// Pre-claim availability probe. A handle is available only when no active agent
+// holds it AND no unexpired tombstone blocks it. Invalid handles return 200 with
+// valid:false (so the UI can show the reason), matching checkName's soft style.
+async function checkUsername(url, db) {
+  const raw = url.searchParams.get("username") || "";
+  const v = validateUsername(raw);
+  if (!v.valid) {
+    return json({ username: raw, valid: false, available: false, error: v.error }, 200);
+  }
+  const normalized = v.normalized;
+  const held = await db.prepare(
+    "SELECT air_id FROM agents WHERE LOWER(username) = ? AND status = 'active' LIMIT 1"
+  ).bind(normalized).first();
+  const tomb = await db.prepare(
+    "SELECT released_by_air_id, released_at FROM username_tombstones WHERE username_normalized = ?"
+  ).bind(normalized).first();
+  // null claimant = pure availability probe: any unexpired tombstone blocks.
+  const inCooldown = isHandleInCooldown(tomb, null, Date.now());
+  return json({
+    username: normalized,
+    valid: true,
+    available: !held && !inCooldown,
+    reason: held ? "taken" : (inCooldown ? "cooldown" : "available"),
+  }, 200);
+}
+
+// GET /api/v1/agents/by-username/{handle}
+// Resolves a published @handle to its full agent record. Delegates to getAgent
+// so the shape is identical to GET /agents/{air_id}.
+async function getAgentByUsername(handle, db) {
+  // Resolver: normalize with the charset check ONLY. Reservation is a claim-time
+  // policy — a handle claimed before a word became reserved must still resolve.
+  const normalized = lookupHandle(handle);
+  if (normalized === null) {
+    return json({ error: "Invalid username" }, 400);
+  }
+  const row = await db.prepare(
+    "SELECT air_id FROM agents WHERE LOWER(username) = ? AND status = 'active' LIMIT 1"
+  ).bind(normalized).first();
+  if (!row) {
+    return json({ error: "No agent with that username" }, 404);
+  }
+  return getAgent(row.air_id, db);
 }
 
 // ============================================================

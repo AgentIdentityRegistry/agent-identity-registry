@@ -35,7 +35,11 @@ CREATE TABLE IF NOT EXISTS agents (
   -- has not declared any; getDidDocument still returns the hardcoded
   -- AIRTrustScore entry on top of whatever this column adds.
   -- See migrations/0003_add_service_endpoints.sql (Phase 3 Stage 3.0.1a).
-  service_endpoints TEXT
+  service_endpoints TEXT,
+  -- Unique published @handle (Milestone G). NULL for legacy / un-claimed agents.
+  -- Stored normalized (NFKC + lowercased); case-insensitive uniqueness via
+  -- uq_agents_username. See migrations/0007_add_username.sql.
+  username TEXT
 );
 
 CREATE TABLE IF NOT EXISTS trust_scores (
@@ -63,3 +67,14 @@ CREATE INDEX IF NOT EXISTS idx_agents_air_id ON agents(air_id);
 CREATE INDEX IF NOT EXISTS idx_agents_status ON agents(status);
 CREATE INDEX IF NOT EXISTS idx_trust_scores_air_id ON trust_scores(air_id);
 CREATE INDEX IF NOT EXISTS idx_rate_limits_ip_endpoint ON rate_limits(ip, endpoint, created_at);
+
+-- Unique published @handle (Milestone G) — case-folded uniqueness, NULL legacy rows excluded.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_agents_username ON agents(LOWER(username)) WHERE username IS NOT NULL;
+
+-- Released handles reserved during their cooldown window (changeable + cooldown policy).
+CREATE TABLE IF NOT EXISTS username_tombstones (
+  username_normalized TEXT PRIMARY KEY,
+  released_by_air_id  TEXT NOT NULL,
+  released_at         TEXT NOT NULL,
+  username_display    TEXT
+);
